@@ -29,5 +29,6 @@ export type Invoice = {
   total_price_components: MonetaryComponent[];
   total_net: number;
   total_gross: number;
+  total_payments: string;
   payment_reconciliations?: PaymentReconciliation[];
 };

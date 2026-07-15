@@ -120,7 +120,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amount = parseFloat(invoice.account.total_balance || "0");
+  // Amount due on this specific invoice — mirrors the native Record Payment
+  // sheet's "Amount Due" (PaymentReconciliationSheet.tsx), not the account's
+  // aggregate balance, which can span other invoices.
+  const amount =
+    Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
 
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
