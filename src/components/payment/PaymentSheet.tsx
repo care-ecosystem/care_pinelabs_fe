@@ -97,6 +97,27 @@ const derivePaymentMode = (method: string): PaymentMode =>
     ? PaymentMode.CARD
     : PaymentMode.UPI;
 
+const SELECTED_RADIO_OPTION_STYLE = {
+  borderColor: "var(--color-primary-600, #057a55)",
+  backgroundColor:
+    "color-mix(in srgb, var(--color-primary-100, #def7ec) 50%, transparent)",
+};
+
+const RadioOption: FC<{
+  value: string;
+  label: string;
+  selected: boolean;
+  ariaLabel: string;
+}> = ({ value, label, selected, ariaLabel }) => (
+  <Label
+    className="flex cursor-pointer gap-2 items-center justify-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none"
+    style={selected ? SELECTED_RADIO_OPTION_STYLE : undefined}
+  >
+    <RadioGroupItem value={value} aria-label={ariaLabel} />
+    <span className="text-sm font-medium text-gray-950">{label}</span>
+  </Label>
+);
+
 const getPaymentMethodLabel = (method: string): string =>
   PAYMENT_METHODS.find((m) => m.value === method)?.label ||
   method.toUpperCase();
@@ -112,6 +133,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     useState<PaymentReconciliationPaymentMethod>(
       PaymentReconciliationPaymentMethod.ccca,
     );
+  const [reconciliationType, setReconciliationType] =
+    useState<PaymentReconciliationType>(PaymentReconciliationType.payment);
+  const [issuerType, setIssuerType] = useState<PaymentReconciliationIssuerType>(
+    PaymentReconciliationIssuerType.patient,
+  );
   const [locationId, setLocationId] = useState<string>();
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
   const [prId, setPrId] = useState<string | null>(null);
@@ -186,9 +212,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return {
         terminal: selectedTerminal,
         payment_mode: derivePaymentMode(paymentMethod),
-        reconciliation_type: PaymentReconciliationType.payment,
+        reconciliation_type: reconciliationType,
         kind: PaymentReconciliationKind.online,
-        issuer_type: PaymentReconciliationIssuerType.patient,
+        issuer_type: issuerType,
         method: paymentMethod,
         tendered_amount: amount.toFixed(2),
         returned_amount: "0",
@@ -199,7 +225,15 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         disposition: null,
         note: null,
       };
-    }, [amount, invoice, locationId, paymentMethod, selectedTerminal]);
+    }, [
+      amount,
+      invoice,
+      issuerType,
+      locationId,
+      paymentMethod,
+      reconciliationType,
+      selectedTerminal,
+    ]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -372,22 +406,20 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               <div className="space-y-2">
                 <Label className="text-gray-950">Payment Type</Label>
                 <RadioGroup
-                  value={PaymentReconciliationType.payment}
+                  value={reconciliationType}
+                  onValueChange={(value) =>
+                    setReconciliationType(value as PaymentReconciliationType)
+                  }
                   className="flex flex-wrap"
                 >
                   {PAYMENT_TYPES.map((type) => (
-                    <Label
+                    <RadioOption
                       key={type.value}
-                      className="flex cursor-pointer gap-2 items-center justify-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-primary-100/50"
-                    >
-                      <RadioGroupItem
-                        value={type.value}
-                        aria-label={`payment-type-${type.value}`}
-                      />
-                      <span className="text-sm font-medium text-gray-950">
-                        {type.label}
-                      </span>
-                    </Label>
+                      value={type.value}
+                      label={type.label}
+                      selected={type.value === reconciliationType}
+                      ariaLabel={`payment-type-${type.value}`}
+                    />
                   ))}
                 </RadioGroup>
               </div>
@@ -395,22 +427,20 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               <div className="space-y-2">
                 <Label className="text-gray-950">Issuer Type</Label>
                 <RadioGroup
-                  value={PaymentReconciliationIssuerType.patient}
+                  value={issuerType}
+                  onValueChange={(value) =>
+                    setIssuerType(value as PaymentReconciliationIssuerType)
+                  }
                   className="flex flex-wrap"
                 >
                   {ISSUER_TYPES.map((type) => (
-                    <Label
+                    <RadioOption
                       key={type.value}
-                      className="flex cursor-pointer gap-2 items-center justify-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-primary-100/50"
-                    >
-                      <RadioGroupItem
-                        value={type.value}
-                        aria-label={`issuer-type-${type.value}`}
-                      />
-                      <span className="text-sm font-medium text-gray-950">
-                        {type.label}
-                      </span>
-                    </Label>
+                      value={type.value}
+                      label={type.label}
+                      selected={type.value === issuerType}
+                      ariaLabel={`issuer-type-${type.value}`}
+                    />
                   ))}
                 </RadioGroup>
               </div>
