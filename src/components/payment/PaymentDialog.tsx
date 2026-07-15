@@ -99,10 +99,19 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
     paymentMethod as PaymentReconciliationPaymentMethod,
   );
 
+  // Amount due on this specific invoice — mirrors the native Record Payment
+  // sheet's "Amount Due" (PaymentReconciliationSheet.tsx), not whatever the
+  // host form's `tendered_amount`/`amount` field was defaulted to.
+  const invoiceAmountDue = invoice
+    ? Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0")
+    : undefined;
+
   // Fall back to legacy `amount` field for parents that don't yet split the
   // tendered / returned amounts.
   const tenderedRaw =
-    form?.getValues("tendered_amount") ?? form?.getValues("amount");
+    invoiceAmountDue ??
+    form?.getValues("tendered_amount") ??
+    form?.getValues("amount");
   const returnedRaw = form?.getValues("returned_amount");
   const tenderedAmount = toDecimalString(tenderedRaw);
   const returnedAmount = toDecimalString(returnedRaw);
@@ -370,6 +379,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
             onTerminalChange={setSelectedTerminal}
             paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
             amount={displayAmount}
+            invoice={invoice}
           />
         )}
 
@@ -415,6 +425,7 @@ type FormViewProps = {
   onTerminalChange: (value: string) => void;
   paymentMethodLabel: string;
   amount: number;
+  invoice?: Invoice;
 };
 
 const FormView: FC<FormViewProps> = ({
@@ -423,10 +434,28 @@ const FormView: FC<FormViewProps> = ({
   onTerminalChange,
   paymentMethodLabel,
   amount,
+  invoice,
 }) => (
   <div className="space-y-4">
+    {invoice ? (
+      <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
+        <div className="flex text-sm justify-center text-gray-700">
+          Invoice total:
+          <p className="font-bold ml-1">
+            {formatCurrency(invoice.total_gross)}
+          </p>
+        </div>
+        <div className="bg-white p-3 text-center">
+          <p className="text-sm text-gray-600 mb-1">Amount Due</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {formatCurrency(amount)}
+          </p>
+        </div>
+      </div>
+    ) : (
+      <SummaryRow label="Amount" value={formatCurrency(amount)} />
+    )}
     <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-    <SummaryRow label="Amount" value={formatCurrency(amount)} />
     <div className="space-y-2">
       <Label>Select Terminal</Label>
       <TerminalSelect
