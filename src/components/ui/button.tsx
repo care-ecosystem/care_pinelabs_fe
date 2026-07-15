@@ -1,8 +1,8 @@
-import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
-import { cva, type VariantProps } from "class-variance-authority"
+import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
+import { cva, type VariantProps } from "class-variance-authority";
 
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils";
 import { Loader2Icon } from "lucide-react";
 
 const buttonVariants = cva(
@@ -15,7 +15,11 @@ const buttonVariants = cva(
         destructive:
           "bg-red-500 text-white hover:bg-red-500/90 focus-visible:ring-red-500/20 dark:focus-visible:ring-red-500/40 dark:bg-red-500/60 dark:bg-red-900 dark:hover:bg-red-900/90 dark:focus-visible:ring-red-900/20 dark:dark:focus-visible:ring-red-900/40 dark:dark:bg-red-900/60",
         outline:
-          "border bg-white shadow-xs hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-200/30 dark:border-gray-200 dark:hover:bg-gray-200/50 dark:bg-gray-950 dark:hover:bg-gray-800 dark:hover:text-gray-50 dark:dark:bg-gray-800/30 dark:dark:border-gray-800 dark:dark:hover:bg-gray-800/50",
+          "border border-gray-400 bg-white shadow-xs hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-200/30 dark:border-gray-200 dark:hover:bg-gray-200/50 dark:bg-gray-950 dark:hover:bg-gray-800 dark:hover:text-gray-50 dark:dark:bg-gray-800/30 dark:dark:border-gray-800 dark:dark:hover:bg-gray-800/50",
+        primary:
+          "bg-primary-700 text-white hover:bg-primary-700/90 dark:bg-primary-100 dark:text-primary-900 dark:hover:bg-primary-100/90",
+        outline_primary:
+          "border border-primary-700 text-primary-700 bg-white shadow-xs hover:bg-primary-700 hover:text-white dark:border-primary-700 dark:bg-primary-700 dark:text-white",
         secondary:
           "bg-gray-100 text-gray-900 hover:bg-gray-100/80 dark:bg-gray-800 dark:text-gray-50 dark:hover:bg-gray-800/80",
         ghost:
@@ -35,7 +39,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 );
 
 function Button({
@@ -71,4 +75,4 @@ function Button({
   );
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };
