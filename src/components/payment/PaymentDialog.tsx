@@ -288,7 +288,10 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const handleOpenChange = (open: boolean) => {
     // Lock the dialog open mid-transaction — dismissing would orphan a queued
     // PR. Users must wait for the outcome or explicitly Cancel.
-    if (isTransactionInProgress) return;
+    if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+      toast.warning("Please wait for the transaction to complete or cancel it.");
+      return;
+    }
     setIsOpen(open);
     if (!open) resetDialogState();
   };
@@ -344,7 +347,21 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       </DialogTrigger>
       <DialogContent
         className="sm:max-w-lg"
-        showCloseButton={!isTransactionInProgress}
+        showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}
+        onEscapeKeyDown={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning("Please wait for the transaction to complete or cancel it.");
+            return;
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning("Please wait for the transaction to complete or cancel it.");
+            return;
+          }
+        }}
       >
         <DialogHeader>
           <DialogTitle>Receive Payment via Pinelabs Terminal</DialogTitle>

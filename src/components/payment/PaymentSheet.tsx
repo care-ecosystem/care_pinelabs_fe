@@ -48,25 +48,25 @@ export type PaymentSheetProps = {
 // `mode` (the gateway's payment_mode) instead.
 const PAYMENT_METHODS = [
   {
+    value: "bharat_qr",
+    method: PaymentReconciliationPaymentMethod.ddpo,
+    mode: PaymentMode.BHARAT_QR,
+    icon: QrCode,
+    label: "Bharat QR",
+  },
+  {
     value: "card",
-    method: PaymentReconciliationPaymentMethod.ccca,
+    method: PaymentReconciliationPaymentMethod.debc,
     mode: PaymentMode.CARD,
     icon: CreditCard,
     label: "Card",
   },
   {
     value: "upi",
-    method: PaymentReconciliationPaymentMethod.cash,
+    method: PaymentReconciliationPaymentMethod.ddpo,
     mode: PaymentMode.UPI,
     icon: Smartphone,
     label: "UPI",
-  },
-  {
-    value: "bharat_qr",
-    method: PaymentReconciliationPaymentMethod.cash,
-    mode: PaymentMode.BHARAT_QR,
-    icon: QrCode,
-    label: "Bharat QR",
   },
 ] as const;
 
@@ -230,7 +230,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleOpenChange = (open: boolean) => {
     // Lock the sheet open mid-transaction — dismissing would orphan a queued
     // PR. Users must wait for the outcome or explicitly Cancel.
-    if (isTransactionInProgress) return;
+    if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+      toast.warning("Please wait for the transaction to complete or cancel it.");
+      return;
+    }
     setIsOpen(open);
     if (!open) resetSheetState();
   };
@@ -249,7 +252,24 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
           Collect via Pinelabs Terminal
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0">
+      <SheetContent
+        className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
+        showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}
+        onEscapeKeyDown={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning("Please wait for the transaction to complete or cancel it.");
+            return;
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning("Please wait for the transaction to complete or cancel it.");
+            return;
+          }
+        }}
+      >
         <SheetHeader>
           <SheetTitle className="m-0">
             Receive Payment via Pinelabs Terminal
@@ -399,7 +419,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 loading={uploadTransactionMutation.isPending}
                 className="flex-1"
               >
-                Collect Payment
+                Send Payment Request
               </Button>
             </div>
           )}
