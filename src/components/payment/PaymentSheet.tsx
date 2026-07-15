@@ -1,4 +1,4 @@
-import { CreditCard, Link2Icon, Smartphone } from "lucide-react";
+import { CreditCard, Link2Icon, QrCode, Smartphone } from "lucide-react";
 import { FC, useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -43,71 +43,36 @@ export type PaymentSheetProps = {
   invoice: Invoice;
 };
 
+// PaymentReconciliationPaymentMethod has no distinct UPI/Bharat QR values, so
+// both reuse "cash" as the method sent to the API and are told apart by
+// `mode` (the gateway's payment_mode) instead.
 const PAYMENT_METHODS = [
   {
-    value: PaymentReconciliationPaymentMethod.ccca,
+    value: "card",
+    method: PaymentReconciliationPaymentMethod.ccca,
+    mode: PaymentMode.CARD,
     icon: CreditCard,
-    label: "Credit Card",
+    label: "Card",
   },
   {
-    value: PaymentReconciliationPaymentMethod.debc,
-    icon: CreditCard,
-    label: "Debit Card",
-  },
-  {
-    value: PaymentReconciliationPaymentMethod.cash,
+    value: "upi",
+    method: PaymentReconciliationPaymentMethod.cash,
+    mode: PaymentMode.UPI,
     icon: Smartphone,
     label: "UPI",
   },
-] as const;
-
-// Only "Payment" is supported from this entry point today. Advance is kept
-// here (commented) so it's easy to re-enable once that flow is needed.
-const PAYMENT_TYPES = [
   {
-    value: PaymentReconciliationType.payment,
-    label: "Payment",
+    value: "bharat_qr",
+    method: PaymentReconciliationPaymentMethod.cash,
+    mode: PaymentMode.BHARAT_QR,
+    icon: QrCode,
+    label: "Bharat QR",
   },
-  // {
-  //   value: PaymentReconciliationType.advance,
-  //   label: "Advance",
-  // },
 ] as const;
 
-const CARD_METHODS = new Set([
-  PaymentReconciliationPaymentMethod.debc,
-  PaymentReconciliationPaymentMethod.ccca,
-]);
-
-const derivePaymentMode = (method: string): PaymentMode =>
-  CARD_METHODS.has(method as PaymentReconciliationPaymentMethod)
-    ? PaymentMode.CARD
-    : PaymentMode.UPI;
-
-const SELECTED_RADIO_OPTION_STYLE = {
-  borderColor: "var(--color-primary-600, #057a55)",
-  backgroundColor:
-    "color-mix(in srgb, var(--color-primary-100, #def7ec) 50%, transparent)",
-};
-
-const RadioOption: FC<{
-  value: string;
-  label: string;
-  selected: boolean;
-  ariaLabel: string;
-}> = ({ value, label, selected, ariaLabel }) => (
-  <Label
-    className="flex cursor-pointer gap-2 items-center justify-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none"
-    style={selected ? SELECTED_RADIO_OPTION_STYLE : undefined}
-  >
-    <RadioGroupItem value={value} aria-label={ariaLabel} />
-    <span className="text-sm font-medium text-gray-950">{label}</span>
-  </Label>
-);
-
-const getPaymentMethodLabel = (method: string): string =>
-  PAYMENT_METHODS.find((m) => m.value === method)?.label ||
-  method.toUpperCase();
+const getPaymentMethodLabel = (paymentMethod: string): string =>
+  PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label ||
+  paymentMethod.toUpperCase();
 
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
@@ -116,12 +81,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] =
-    useState<PaymentReconciliationPaymentMethod>(
-      PaymentReconciliationPaymentMethod.ccca,
-    );
-  const [reconciliationType, setReconciliationType] =
-    useState<PaymentReconciliationType>(PaymentReconciliationType.payment);
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    PAYMENT_METHODS[0].value,
+  );
   const [locationId, setLocationId] = useState<string>();
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
   const [prId, setPrId] = useState<string | null>(null);
@@ -192,14 +154,21 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         toast.error("Tendered amount must be greater than zero");
         return null;
       }
+      const selectedMethod = PAYMENT_METHODS.find(
+        (m) => m.value === paymentMethod,
+      );
+      if (!selectedMethod) {
+        toast.error("Please select a payment method");
+        return null;
+      }
 
       return {
         terminal: selectedTerminal,
-        payment_mode: derivePaymentMode(paymentMethod),
-        reconciliation_type: reconciliationType,
+        payment_mode: selectedMethod.mode,
+        reconciliation_type: PaymentReconciliationType.payment,
         kind: PaymentReconciliationKind.online,
         issuer_type: PaymentReconciliationIssuerType.patient,
-        method: paymentMethod,
+        method: selectedMethod.method,
         tendered_amount: amount.toFixed(2),
         returned_amount: "0",
         is_credit_note: false,
@@ -209,7 +178,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         disposition: null,
         note: null,
       };
-    }, [amount, invoice, locationId, paymentMethod, reconciliationType, selectedTerminal]);
+    }, [amount, invoice, locationId, paymentMethod, selectedTerminal]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -348,11 +317,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <Label className="text-gray-950">Payment Method</Label>
                 <RadioGroup
                   value={paymentMethod}
-                  onValueChange={(value) =>
-                    setPaymentMethod(
-                      value as PaymentReconciliationPaymentMethod,
-                    )
-                  }
+                  onValueChange={setPaymentMethod}
                   className="grid grid-cols-3 gap-3"
                 >
                   {PAYMENT_METHODS.map((method) => {
@@ -376,27 +341,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                       </Label>
                     );
                   })}
-                </RadioGroup>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-950">Payment Type</Label>
-                <RadioGroup
-                  value={reconciliationType}
-                  onValueChange={(value) =>
-                    setReconciliationType(value as PaymentReconciliationType)
-                  }
-                  className="flex flex-wrap"
-                >
-                  {PAYMENT_TYPES.map((type) => (
-                    <RadioOption
-                      key={type.value}
-                      value={type.value}
-                      label={type.label}
-                      selected={type.value === reconciliationType}
-                      ariaLabel={`payment-type-${type.value}`}
-                    />
-                  ))}
                 </RadioGroup>
               </div>
 
