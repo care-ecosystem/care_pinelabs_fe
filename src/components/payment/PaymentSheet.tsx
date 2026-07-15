@@ -74,19 +74,6 @@ const PAYMENT_TYPES = [
   // },
 ] as const;
 
-// Only "Patient" is supported from this entry point today. Insurance is kept
-// here (commented) so it's easy to re-enable once that flow is needed.
-const ISSUER_TYPES = [
-  {
-    value: PaymentReconciliationIssuerType.patient,
-    label: "Patient",
-  },
-  // {
-  //   value: PaymentReconciliationIssuerType.insurance,
-  //   label: "Insurer",
-  // },
-] as const;
-
 const CARD_METHODS = new Set([
   PaymentReconciliationPaymentMethod.debc,
   PaymentReconciliationPaymentMethod.ccca,
@@ -135,9 +122,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     );
   const [reconciliationType, setReconciliationType] =
     useState<PaymentReconciliationType>(PaymentReconciliationType.payment);
-  const [issuerType, setIssuerType] = useState<PaymentReconciliationIssuerType>(
-    PaymentReconciliationIssuerType.patient,
-  );
   const [locationId, setLocationId] = useState<string>();
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
   const [prId, setPrId] = useState<string | null>(null);
@@ -214,7 +198,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         payment_mode: derivePaymentMode(paymentMethod),
         reconciliation_type: reconciliationType,
         kind: PaymentReconciliationKind.online,
-        issuer_type: issuerType,
+        issuer_type: PaymentReconciliationIssuerType.patient,
         method: paymentMethod,
         tendered_amount: amount.toFixed(2),
         returned_amount: "0",
@@ -225,15 +209,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         disposition: null,
         note: null,
       };
-    }, [
-      amount,
-      invoice,
-      issuerType,
-      locationId,
-      paymentMethod,
-      reconciliationType,
-      selectedTerminal,
-    ]);
+    }, [amount, invoice, locationId, paymentMethod, reconciliationType, selectedTerminal]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -419,27 +395,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                       label={type.label}
                       selected={type.value === reconciliationType}
                       ariaLabel={`payment-type-${type.value}`}
-                    />
-                  ))}
-                </RadioGroup>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-gray-950">Issuer Type</Label>
-                <RadioGroup
-                  value={issuerType}
-                  onValueChange={(value) =>
-                    setIssuerType(value as PaymentReconciliationIssuerType)
-                  }
-                  className="flex flex-wrap"
-                >
-                  {ISSUER_TYPES.map((type) => (
-                    <RadioOption
-                      key={type.value}
-                      value={type.value}
-                      label={type.label}
-                      selected={type.value === issuerType}
-                      ariaLabel={`issuer-type-${type.value}`}
                     />
                   ))}
                 </RadioGroup>
