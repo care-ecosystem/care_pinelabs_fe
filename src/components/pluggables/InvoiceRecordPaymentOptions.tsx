@@ -1,6 +1,5 @@
 import { FC } from "react";
 import { Invoice } from "@/types/invoice";
-import { PaymentDialog } from "@/components/payment/PaymentDialog";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { UseFormReturn } from "react-hook-form";
 
@@ -12,16 +11,11 @@ export type InvoiceRecordPaymentOptionsProps = {
 
 const InvoiceRecordPaymentOptions: FC<InvoiceRecordPaymentOptionsProps> = ({
   facilityId,
-  invoice,
-  form,
+  invoice
 }) => {
   return (
     <div className="care-pinelabs-container w-full">
-      {form ? (
-        <PaymentDialog form={form} facilityId={facilityId} invoice={invoice} />
-      ) : (
         <PaymentSheet facilityId={facilityId} invoice={invoice} />
-      )}
     </div>
   );
 };
