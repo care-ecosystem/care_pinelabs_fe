@@ -27,23 +27,31 @@ export const STATUS_FIELDS = [
 ] as const;
 
 // Fields to display from the Status.transaction_data object
+// Includes fields for both Card and UPI/Bharat QR transactions
 export const TRANSACTION_DATA_FIELDS = [
   "MID",
   "TID",
   "RRN",
   "Amount",
   "FinalAmount",
-  "Card Type",
-  "Card Number",
-  "Expiry Date",
   "PaymentMode",
   "ApprovalCode",
   "Acquirer Name",
+  "Acquirer Id",
+  "BatchNumber",
   "Invoice Number",
-  "Card Holder Name",
   "Transaction Date",
   "Transaction Time",
   "TransactionLogId",
+  "AmountInPaisa",
+  "OriginalAmount",
+  // Card-specific fields (only shown for card transactions)
+  "Card Type",
+  "Card Number",
+  "Expiry Date",
+  "Card Holder Name",
+  // UPI/Bharat QR specific fields (only shown for UPI transactions)
+  "Customer VPA",
 ] as const;
 
 // Fields to display from the Upload object
@@ -52,12 +60,12 @@ export const UPLOAD_FIELDS = [
   "response_message",
 ] as const;
 
-// Fields to display from the main Pinelabs object
+// Fields to display from the main Pinelabs object (use actual snake_case keys)
 export const PINELABS_FIELDS = [
-  "Terminal Id",
-  "Payment Mode",
-  "Transaction Number",
-  "Transaction Reference Id",
+  "terminal_id",
+  "payment_mode",
+  "transaction_number",
+  "transaction_reference_id",
 ] as const;
 
 // Order of sections to display
