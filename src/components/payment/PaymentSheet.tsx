@@ -19,7 +19,6 @@ import {
 import { apis } from "@/apis";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
-import { getPaymentMethodLabel } from "@/lib/paymentMethods";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
 import { LocationSelect } from "@/components/payment/LocationSelect";
@@ -241,11 +240,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     !pollingTimedOut &&
     !isTransactionInProgress;
 
-  // Get the payment method enum value for the current selection
-  const selectedMethodConfig = PAYMENT_METHODS.find((m) => m.value === paymentMethod);
-  const currentPaymentMethodLabel = selectedMethodConfig
-    ? t(getPaymentMethodLabel(selectedMethodConfig.method))
-    : paymentMethod.toUpperCase();
+  // Get the payment method label using the unique value
+  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -358,7 +354,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                         <div className="grid grow justify-items-center gap-1">
                           <Icon className="size-5 text-gray-600" />
                           <span className="text-sm font-medium text-center text-gray-950">
-                            {t(getPaymentMethodLabel(method.method))}
+                            {t(`payment_method_${method.value}`)}
                           </span>
                         </div>
                       </Label>
