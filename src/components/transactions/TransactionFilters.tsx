@@ -56,7 +56,9 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
 
   const handleClearFilters = () => {
-    onFiltersChange({});
+    onFiltersChange({
+      method: PaymentReconciliationPaymentMethod.ddpo, // Keep default method when clearing
+    });
   };
 
   return (
@@ -159,34 +161,29 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             </Select>
           </div>
 
-          {/* Payment Method Filter */}
+          {/* Payment Method Filter - Required (no "All" option) */}
           <div className="space-y-2">
-            <Label>{t("payment_method")}</Label>
+            <Label>
+              {t("payment_method")} <span className="text-red-500">*</span>
+            </Label>
             <Select
-              value={filters.method || undefined}
+              value={filters.method || PaymentReconciliationPaymentMethod.ddpo}
               onValueChange={(value) => {
-                if (value === "clear") {
-                  onFiltersChange({ ...filters, method: "" });
-                } else {
-                  onFiltersChange({
-                    ...filters,
-                    method: value as PaymentReconciliationPaymentMethod,
-                  });
-                }
+                onFiltersChange({
+                  ...filters,
+                  method: value as PaymentReconciliationPaymentMethod,
+                });
               }}
             >
               <SelectTrigger>
-                <SelectValue placeholder={t("all_methods")} />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {filters.method && (
-                  <SelectItem value="clear">{t("all_methods")}</SelectItem>
-                )}
-                <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
-                  {t("payment_method_card")}
-                </SelectItem>
                 <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
                   {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
+                </SelectItem>
+                <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
+                  {t("payment_method_card")}
                 </SelectItem>
               </SelectContent>
             </Select>
