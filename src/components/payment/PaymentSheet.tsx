@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -22,7 +21,7 @@ import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { LocationSelect } from "@/components/payment/LocationSelect";
+import { LocationPicker } from "@/components/payment/LocationPicker";
 import { TerminalSelect } from "@/components/payment/TerminalSelect";
 import {
   FailureView,
@@ -32,6 +31,7 @@ import {
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
 import { Invoice } from "@/types/invoice";
+import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
@@ -81,20 +81,15 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value,
   );
-  const [locationId, setLocationId] = useState<string>();
+  const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
+    null,
+  );
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
   const [prId, setPrId] = useState<string | null>(null);
   const [settledPr, setSettledPr] = useState<PaymentReconciliation | null>(
     null,
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
-  const triggerButtonRef = useRef<HTMLButtonElement>(null);
-
-  useButtonShortcut({
-    key: "t",
-    enabled: !isOpen,
-    onTrigger: useCallback(() => triggerButtonRef.current?.click(), []),
-  });
 
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
@@ -119,9 +114,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 
   const handleTimeout = useCallback(() => {
     setPollingTimedOut(true);
-    toast.warning(
-      t("toast_transaction_timed_out"),
-    );
+    toast.warning(t("toast_transaction_timed_out"));
   }, []);
 
   const { pr: polledPr, isPolling } = usePaymentReconciliationStatus(prId, {
@@ -175,11 +168,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         is_credit_note: false,
         account: invoice.account.id,
         target_invoice: invoice.id,
-        location: locationId ?? null,
+        location: selectedLocation?.id ?? null,
         disposition: null,
         note: null,
       };
-    }, [amount, invoice, locationId, paymentMethod, selectedTerminal]);
+    }, [amount, invoice, selectedLocation, paymentMethod, selectedTerminal]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -192,7 +185,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     onError: (error: unknown) => {
       console.error("Upload Transaction: ", error);
       toast.error(
-        getPinelabsErrorMessage(error, t("error_failed_to_initiate_transaction")),
+        getPinelabsErrorMessage(
+          error,
+          t("error_failed_to_initiate_transaction"),
+        ),
       );
     },
   });
@@ -251,19 +247,16 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button
-          ref={triggerButtonRef}
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start"
-        >
+        <Button variant="ghost" size="sm" className="w-full justify-start">
           <Link2Icon className="h-4 w-4" />
           {t("collect_via_pinelabs_terminal")}
         </Button>
       </SheetTrigger>
       <SheetContent
         className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
-        showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}
+        showCloseButton={
+          !isTransactionInProgress && !uploadTransactionMutation.isPending
+        }
         onEscapeKeyDown={(e) => {
           if (isTransactionInProgress || uploadTransactionMutation.isPending) {
             e.preventDefault();
@@ -284,7 +277,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             {t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("recording_payment_for_invoice", { invoiceNumber: invoice.number })}
+            {t("recording_payment_for_invoice", {
+              invoiceNumber: invoice.number,
+            })}
           </SheetDescription>
         </SheetHeader>
 
@@ -326,7 +321,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 </div>
 
                 <div className="bg-white p-3 text-center">
-                  <p className="text-sm text-gray-600 mb-1">{t("amount_due")}</p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    {t("amount_due")}
+                  </p>
                   <p className="text-3xl font-bold text-gray-900">
                     {formatCurrency(amount)}
                   </p>
@@ -375,10 +372,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 
               <div className="space-y-2">
                 <Label className="text-gray-950">{t("location")}</Label>
-                <LocationSelect
+                <LocationPicker
                   facilityId={facilityId}
-                  value={locationId}
-                  onValueChange={setLocationId}
+                  value={selectedLocation}
+                  onValueChange={setSelectedLocation}
+                  placeholder={t("select_location")}
+                  className="w-full"
                 />
               </div>
 

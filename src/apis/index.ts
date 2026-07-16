@@ -21,6 +21,9 @@ export const apis = {
       params: {
         status?: string;
         mine?: boolean;
+        parent?: string;
+        mode?: string;
+        name?: string;
       } = {},
     ) => {
       const cleanParams = Object.fromEntries(
