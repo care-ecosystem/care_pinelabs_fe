@@ -9,16 +9,18 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   PaymentReconciliation,
   PaymentReconciliationOutcome,
 } from "@/types/payment_reconciliation";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toast } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apis } from "@/apis";
-import { Loader2Icon } from "lucide-react";
+import { Loader2Icon, RefreshCwIcon } from "lucide-react";
 import { MetaTable } from "./MetaTable";
+import { getPinelabsErrorMessage } from "@/lib/errors";
 
 type TransactionDetailsSheetProps = {
   open: boolean;
@@ -32,6 +34,7 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
   transactionId,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
+  const queryClient = useQueryClient();
 
   const {
     data: transaction,
@@ -67,6 +70,37 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
     enabled: !!terminalId,
   });
 
+  // Refresh transaction status mutation
+  const refreshStatusMutation = useMutation({
+    mutationFn: apis.gateway.refresh_transaction_status,
+    onSuccess: (data) => {
+      if (data.status_changed) {
+        toast.success(t("toast_transaction_status_updated"));
+        // Invalidate and refetch queries
+        queryClient.invalidateQueries({
+          queryKey: ["transaction_status", transactionId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["payment_reconciliations"],
+        });
+        refetch();
+      } else {
+        toast.info(t("toast_no_status_change"));
+      }
+    },
+    onError: (error: unknown) => {
+      console.error("Refresh Transaction Status: ", error);
+      toast.error(
+        getPinelabsErrorMessage(error, t("error_failed_to_refresh_status")),
+      );
+    },
+  });
+
+  const handleRefreshStatus = () => {
+    if (!transactionId) return;
+    refreshStatusMutation.mutate({ payment_reconciliation: transactionId });
+  };
+
   if (!transactionId) return null;
 
   const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
@@ -91,6 +125,24 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
             {t("transaction_details_description")}
           </SheetDescription>
         </SheetHeader>
+
+        {/* Refresh Button */}
+        {transaction && (
+          <div className="py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshStatus}
+              disabled={refreshStatusMutation.isPending}
+              className="w-full"
+            >
+              <RefreshCwIcon
+                className={`h-4 w-4 mr-2 ${refreshStatusMutation.isPending ? "animate-spin" : ""}`}
+              />
+              {t("refresh_status_from_pinelabs")}
+            </Button>
+          </div>
+        )}
 
         {isLoading && (
           <div className="flex items-center justify-center py-12">

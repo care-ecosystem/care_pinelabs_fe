@@ -1,6 +1,8 @@
 import {
   CancelTransactionRequest,
   PaymentReconciliationRead,
+  RefreshTransactionStatusRequest,
+  RefreshTransactionStatusResponse,
   TransactionStatusRequest,
   UploadTransactionRequest,
 } from "@/types/gateway";
@@ -97,6 +99,15 @@ export const apis = {
     cancel_transaction: async (data: CancelTransactionRequest) => {
       return await request<PaymentReconciliationRead>(
         "/api/care_pinelabs/gateway/cancel_transaction/",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      );
+    },
+    refresh_transaction_status: async (data: RefreshTransactionStatusRequest) => {
+      return await request<RefreshTransactionStatusResponse>(
+        "/api/care_pinelabs/gateway/refresh_transaction_status/",
         {
           method: "POST",
           body: JSON.stringify(data),
