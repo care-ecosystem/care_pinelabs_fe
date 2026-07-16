@@ -5,6 +5,7 @@ import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
+import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliation";
 
 type TransactionsPageProps = {
   facilityId: string;
@@ -12,7 +13,9 @@ type TransactionsPageProps = {
 
 const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [filters, setFilters] = useState<Filters>({});
+  const [filters, setFilters] = useState<Filters>({
+    method: PaymentReconciliationPaymentMethod.ddpo, // Default to UPI/Bharat QR
+  });
   const [selectedTransactionId, setSelectedTransactionId] = useState<
     string | null
   >(null);
