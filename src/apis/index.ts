@@ -9,6 +9,7 @@ import {
   PinelabsTerminal,
 } from "@/types/pinelabs_terminal";
 import { LocationRead } from "@/types/location";
+import { PaymentReconciliation } from "@/types/payment_reconciliation";
 
 import { PaginatedResponse } from "@/apis/types";
 import { request, queryString } from "@/apis/request";
@@ -92,6 +93,36 @@ export const apis = {
           method: "POST",
           body: JSON.stringify(data),
         },
+      );
+    },
+  },
+  payment_reconciliations: {
+    list: async (
+      facilityId: string,
+      params?: {
+        offset?: number;
+        limit?: number;
+        ordering?: string;
+        created_date_after?: string;
+        created_date_before?: string;
+        outcome?: string;
+        method?: string;
+        invoice_number?: string;
+      },
+    ) => {
+      const cleanParams = Object.fromEntries(
+        Object.entries({
+          limit: 20,
+          offset: 0,
+          ordering: "-payment_datetime",
+          ...params,
+        }).filter(
+          ([, value]) => value !== undefined && value !== null && value !== "",
+        ),
+      ) as Record<string, string | number>;
+
+      return await request<PaginatedResponse<PaymentReconciliation>>(
+        `/api/v1/facility/${facilityId}/payment_reconciliation/${queryString(cleanParams)}`,
       );
     },
   },
