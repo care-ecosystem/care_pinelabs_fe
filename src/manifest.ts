@@ -1,8 +1,9 @@
 import { lazy } from "react";
+import routes from "./routes";
 
 const manifest = {
   plugin: "care_pinelabs",
-  routes: {},
+  routes,
   extends: [],
   components: {
     InvoiceRecordPaymentOptions: lazy(
@@ -13,6 +14,12 @@ const manifest = {
     ),
   },
   navItems: [],
+  billingNavItems: [
+    {
+      name: "Pinelabs Transactions",
+      url: "/billing/pinelabs/transactions",
+    },
+  ],
   encounterTabs: {},
 };
 

@@ -51,6 +51,7 @@ export type PaymentReconciliation = {
   issuer_type: PaymentReconciliationIssuerType;
   outcome: PaymentReconciliationOutcome;
   disposition?: string;
+  created_date?: string;
   payment_datetime?: string;
   method: PaymentReconciliationPaymentMethod;
   reference_number?: string;
@@ -62,4 +63,7 @@ export type PaymentReconciliation = {
   target_invoice: Invoice;
   account: Account;
   is_credit_note: boolean;
+  meta?: {
+    pinelabs?: Record<string, unknown>;
+  };
 };
