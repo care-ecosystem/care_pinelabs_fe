@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FC, useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
@@ -23,6 +24,7 @@ import {
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
+import { I18NNAMESPACE } from "@/lib/constants";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
 import {
   Tooltip,
@@ -40,11 +42,14 @@ import { UseFormReturn } from "react-hook-form";
 import { apis } from "@/apis";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
+import { getPaymentMethodLabel } from "@/lib/paymentMethods";
 
 export type PaymentDialogProps = {
   facilityId: string;
   invoice?: Invoice;
   form?: UseFormReturn;
+  disabled?: boolean;
+  disabledReason?: string;
 };
 
 const SUPPORTED_METHODS = new Set([
@@ -58,14 +63,8 @@ const CARD_METHODS = new Set([
   PaymentReconciliationPaymentMethod.ccca,
 ]);
 
-const PAYMENT_METHOD_LABEL: Record<string, string> = {
-  [PaymentReconciliationPaymentMethod.debc]: "Debit Card",
-  [PaymentReconciliationPaymentMethod.ccca]: "Credit Card",
-  [PaymentReconciliationPaymentMethod.cash]: "Cash / UPI",
-};
+// Removed - now using shared getPaymentMethodLabel from @/lib/paymentMethods
 
-const getPaymentMethodLabel = (method: string): string =>
-  PAYMENT_METHOD_LABEL[method] || method.toUpperCase();
 
 const toDecimalString = (value: unknown): string => {
   if (value === undefined || value === null || value === "") return "0";
@@ -83,7 +82,10 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   facilityId,
   invoice,
   form,
+  disabled,
+  disabledReason,
 }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -289,16 +291,23 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
     // Lock the dialog open mid-transaction — dismissing would orphan a queued
     // PR. Users must wait for the outcome or explicitly Cancel.
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
-      toast.warning("Please wait for the transaction to complete or cancel it.");
+      toast.warning(t("toast_wait_for_transaction"));
       return;
     }
     setIsOpen(open);
     if (!open) resetDialogState();
   };
 
+  const isDisabled = disabled || !isSelectedPaymentMethodSupported;
+  const tooltipReason = disabled && disabledReason
+    ? t(disabledReason)
+    : !isSelectedPaymentMethodSupported
+    ? t("selected_payment_method_not_supported")
+    : undefined;
+
   const triggerButton = useMemo(
     () =>
-      !isSelectedPaymentMethodSupported ? (
+      isDisabled ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="w-full">
@@ -306,15 +315,15 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
                 variant="ghost"
                 size="sm"
                 className="w-full justify-start"
-                // disabled
+                disabled
               >
                 <Link2Icon className="h-4 w-4" />
-                Collect via Pinelabs Terminal
+                {t("collect_via_pinelabs_terminal")}
               </Button>
             </span>
           </TooltipTrigger>
           <TooltipContent>
-            Selected payment method is not supported.
+            {tooltipReason}
           </TooltipContent>
         </Tooltip>
       ) : (
@@ -322,7 +331,6 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
           variant="ghost"
           size="sm"
           className="w-full justify-start"
-          disabled={!isSelectedPaymentMethodSupported}
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -334,15 +342,15 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
           }}
         >
           <Link2Icon className="h-4 w-4" />
-          Collect via Pinelabs Terminal
+          {t("collect_via_pinelabs_terminal")}
         </Button>
       ),
-    [form, isSelectedPaymentMethodSupported],
+    [form, isDisabled, tooltipReason, t],
   );
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild disabled={!isSelectedPaymentMethodSupported}>
+      <DialogTrigger asChild disabled={isDisabled}>
         {triggerButton}
       </DialogTrigger>
       <DialogContent
@@ -364,28 +372,28 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         }}
       >
         <DialogHeader>
-          <DialogTitle>Receive Payment via Pinelabs Terminal</DialogTitle>
+          <DialogTitle>{t("receive_payment_via_pinelabs_terminal")}</DialogTitle>
         </DialogHeader>
 
         {showSuccess && livePr ? (
           <SuccessView
             pr={livePr}
-            paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
           />
         ) : showFailure && livePr ? (
           <FailureView
             pr={livePr}
-            paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
             amount={displayAmount}
           />
         ) : pollingTimedOut ? (
           <TimedOutView
-            paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
             amount={displayAmount}
           />
         ) : isTransactionInProgress ? (
           <InProgressView
-            paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
             amount={displayAmount}
             isPolling={isPolling}
           />
@@ -394,9 +402,8 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
             facilityId={facilityId}
             selectedTerminal={selectedTerminal}
             onTerminalChange={setSelectedTerminal}
-            paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
             amount={displayAmount}
-            invoice={invoice}
           />
         )}
 
@@ -417,7 +424,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
           ) : (
             <>
               <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline">{t("cancel")}</Button>
               </DialogClose>
               <Button
                 onClick={handleCollectPayment}
@@ -451,38 +458,23 @@ const FormView: FC<FormViewProps> = ({
   onTerminalChange,
   paymentMethodLabel,
   amount,
-  invoice,
-}) => (
-  <div className="space-y-4">
-    {invoice ? (
-      <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
-        <div className="flex text-sm justify-center text-gray-700">
-          Invoice total:
-          <p className="font-bold ml-1">
-            {formatCurrency(invoice.total_gross)}
-          </p>
-        </div>
-        <div className="bg-white p-3 text-center">
-          <p className="text-sm text-gray-600 mb-1">Amount Due</p>
-          <p className="text-3xl font-bold text-gray-900">
-            {formatCurrency(amount)}
-          </p>
-        </div>
+}) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  return (
+    <div className="space-y-4">
+      <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+      <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
+      <div className="space-y-2">
+        <Label>{t("select_terminal")}</Label>
+        <TerminalSelect
+          facilityId={facilityId}
+          value={selectedTerminal}
+          onValueChange={onTerminalChange}
+        />
       </div>
-    ) : (
-      <SummaryRow label="Amount" value={formatCurrency(amount)} />
-    )}
-    <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-    <div className="space-y-2">
-      <Label>Select Terminal</Label>
-      <TerminalSelect
-        facilityId={facilityId}
-        value={selectedTerminal}
-        onValueChange={onTerminalChange}
-      />
     </div>
-  </div>
-);
+  );
+};
 
 type InProgressViewProps = {
   paymentMethodLabel: string;
@@ -490,29 +482,28 @@ type InProgressViewProps = {
   isPolling: boolean;
 };
 
-export const InProgressView: FC<InProgressViewProps> = ({
-  paymentMethodLabel,
-  amount,
-  isPolling,
-}) => (
+export const InProgressView: FC<InProgressViewProps> = ({ paymentMethodLabel, amount, isPolling }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  return (
   <div className="space-y-4">
     <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center dark:border-blue-800 dark:bg-blue-950">
       <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-blue-600 dark:text-blue-300" />
       <p className="mt-3 text-sm font-medium text-blue-800 dark:text-blue-200">
-        Transaction in progress…
+        {t("transaction_in_progress")}
       </p>
       <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
         {isPolling
-          ? "Waiting for the customer to complete the payment on the POS terminal."
-          : "Checking status…"}
+          ? t("waiting_for_customer")
+          : t("checking_status")}
       </p>
     </div>
     <div className="space-y-2">
-      <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-      <SummaryRow label="Amount" value={formatCurrency(amount)} />
+      <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+      <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
     </div>
   </div>
-);
+  );
+};
 
 type SuccessViewProps = {
   pr: PaymentReconciliation;
@@ -523,19 +514,19 @@ export const SuccessView: FC<SuccessViewProps> = ({
   pr,
   paymentMethodLabel,
 }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const amountValue = pr.amount ? parseFloat(pr.amount) : undefined;
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-green-200 bg-green-50 p-6 text-center dark:border-green-800 dark:bg-green-950">
         <CheckCircle2Icon className="mx-auto h-10 w-10 text-green-600 dark:text-green-300" />
         <p className="mt-3 text-sm font-semibold text-green-800 dark:text-green-200">
-          Payment Completed Successfully
+          {t("payment_completed_successfully")}
         </p>
         {pr.reference_number ? (
           <div className="mt-3 space-y-1">
             <p className="text-xs uppercase tracking-wide text-green-600 dark:text-green-400">
-              RRN
-            </p>
+              {t("rrn")}</p>
             <p className="text-2xl font-bold text-green-900 dark:text-green-100">
               {pr.reference_number}
             </p>
@@ -543,14 +534,14 @@ export const SuccessView: FC<SuccessViewProps> = ({
         ) : null}
       </div>
       <div className="space-y-2">
-        <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-        <SummaryRow label="Amount" value={formatCurrency(amountValue)} />
+        <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+        <SummaryRow label={t("amount")} value={formatCurrency(amountValue)} />
         {pr.authorization ? (
-          <SummaryRow label="Approval Code" value={pr.authorization} mono />
+          <SummaryRow label={t("approval_code")} value={pr.authorization} mono />
         ) : null}
         {pr.payment_datetime ? (
           <SummaryRow
-            label="Completed At"
+            label={t("completed_at")}
             value={new Date(pr.payment_datetime).toLocaleString()}
           />
         ) : null}
@@ -565,11 +556,8 @@ type FailureViewProps = {
   amount: number;
 };
 
-export const FailureView: FC<FailureViewProps> = ({
-  pr,
-  paymentMethodLabel,
-  amount,
-}) => {
+export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amount }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const isPartial = pr.outcome === PaymentReconciliationOutcome.partial;
   return (
     <div className="space-y-4">
@@ -595,8 +583,8 @@ export const FailureView: FC<FailureViewProps> = ({
           }
         >
           {isPartial
-            ? "Payment Partially Completed"
-            : "Payment Failed on the Terminal"}
+            ? t("payment_partially_completed")
+            : t("payment_failed_on_terminal")}
         </p>
         {pr.disposition ? (
           <p
@@ -611,42 +599,42 @@ export const FailureView: FC<FailureViewProps> = ({
         ) : null}
       </div>
       <div className="space-y-2">
-        <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-        <SummaryRow label="Amount" value={formatCurrency(amount)} />
+        <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+        <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
         {pr.reference_number ? (
-          <SummaryRow label="RRN" value={pr.reference_number} mono />
+          <SummaryRow label={t("rrn")} value={pr.reference_number} mono />
         ) : null}
       </div>
     </div>
   );
 };
 
+
 type TimedOutViewProps = {
   paymentMethodLabel: string;
   amount: number;
 };
 
-export const TimedOutView: FC<TimedOutViewProps> = ({
-  paymentMethodLabel,
-  amount,
-}) => (
+export const TimedOutView: FC<TimedOutViewProps> = ({ paymentMethodLabel, amount }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  return (
   <div className="space-y-4">
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
       <ClockIcon className="mx-auto h-10 w-10 text-amber-600 dark:text-amber-300" />
       <p className="mt-3 text-sm font-semibold text-amber-800 dark:text-amber-200">
-        Transaction Timed Out
+        {t("transaction_timed_out")}
       </p>
       <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-        We stopped waiting for an outcome from the terminal. Please verify the
-        payment status on the POS device directly before retrying.
+        {t("transaction_timeout_message")}
       </p>
     </div>
     <div className="space-y-2">
-      <SummaryRow label="Payment Method" value={paymentMethodLabel} />
-      <SummaryRow label="Amount" value={formatCurrency(amount)} />
+      <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+      <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
     </div>
   </div>
-);
+  );
+};
 
 type SummaryRowProps = {
   label: string;
