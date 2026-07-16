@@ -40,6 +40,11 @@ export const apis = {
         `/api/care_pinelabs/pinelabs_terminal/?facility=${facilityId}`,
       );
     },
+    get: async (id: string) => {
+      return await request<PinelabsTerminal>(
+        `/api/care_pinelabs/pinelabs_terminal/${id}/`,
+      );
+    },
     create: async (data: CreatePinelabsTerminalBody) => {
       return await request<PinelabsTerminal>(
         "/api/care_pinelabs/pinelabs_terminal/",
@@ -108,6 +113,7 @@ export const apis = {
         outcome?: string;
         method?: string;
         invoice_number?: string;
+        location?: string;
       },
     ) => {
       const cleanParams = Object.fromEntries(

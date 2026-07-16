@@ -12,12 +12,17 @@ import {
 } from "@/types/payment_reconciliation";
 import { formatCurrency } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
-import { Loader2Icon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import {
+  Loader2Icon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ExternalLinkIcon,
+} from "lucide-react";
 
 type TransactionsTableProps = {
   facilityId: string;
   filters: TransactionFilters;
-  onRowClick: (transaction: PaymentReconciliation) => void;
+  onRowClick: (transactionId: string) => void;
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -82,6 +87,9 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                  {t("account")}
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                   {t("payment_initiated_date_time")}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
@@ -108,7 +116,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               {transactions.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     {t("no_transactions_found")}
@@ -118,9 +126,27 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 transactions.map((transaction) => (
                   <tr
                     key={transaction.id}
-                    onClick={() => onRowClick(transaction)}
+                    onClick={() => onRowClick(transaction.id)}
                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                   >
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {transaction.account ? (
+                        <a
+                          href={`/facility/${facilityId}/billing/account/${transaction.account.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
+                        >
+                          {transaction.account.name}
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {transaction.created_date
                         ? dayjs(transaction.created_date).format(
@@ -128,8 +154,23 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                           )
                         : "NA"}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {transaction.target_invoice?.number || "-"}
+                    <td
+                      className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {transaction.target_invoice ? (
+                        <a
+                          href={`/facility/${facilityId}/billing/invoices/${transaction.target_invoice.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
+                        >
+                          {transaction.target_invoice.number}
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        "-"
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {t(`payment_method_${transaction.method}`, transaction.method)}

@@ -31,6 +31,9 @@ export const usePaymentReconciliations = (
   if (filters.invoiceNumber && filters.invoiceNumber.trim() !== "") {
     params.invoice_number = filters.invoiceNumber.trim();
   }
+  if (filters.location && filters.location.trim() !== "") {
+    params.location = filters.location.trim();
+  }
 
   return useQuery({
     queryKey: ["payment_reconciliations", facilityId, params],

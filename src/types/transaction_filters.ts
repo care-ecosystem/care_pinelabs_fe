@@ -9,6 +9,7 @@ export type TransactionFilters = {
   outcome?: PaymentReconciliationOutcome | "";
   method?: PaymentReconciliationPaymentMethod | "";
   invoiceNumber?: string;
+  location?: string;
 };
 
 export type TransactionListParams = {
@@ -20,4 +21,5 @@ export type TransactionListParams = {
   outcome?: string;
   method?: string;
   invoice_number?: string;
+  location?: string;
 };

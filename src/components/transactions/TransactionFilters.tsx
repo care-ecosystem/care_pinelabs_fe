@@ -26,13 +26,16 @@ import {
 import { cn } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
 import { CalendarIcon, XIcon } from "lucide-react";
+import { LocationSelect } from "@/components/payment/LocationSelect";
 
 type TransactionFiltersProps = {
+  facilityId: string;
   filters: Filters;
   onFiltersChange: (filters: Filters) => void;
 };
 
 export const TransactionFilters: FC<TransactionFiltersProps> = ({
+  facilityId,
   filters,
   onFiltersChange,
 }) => {
@@ -45,7 +48,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Date From */}
           <div className="space-y-2">
             <Label>{t("date_from")}</Label>
@@ -183,6 +186,18 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
               value={filters.invoiceNumber || ""}
               onChange={(e) =>
                 onFiltersChange({ ...filters, invoiceNumber: e.target.value })
+              }
+            />
+          </div>
+
+          {/* Location Filter */}
+          <div className="space-y-2">
+            <Label>{t("location")}</Label>
+            <LocationSelect
+              facilityId={facilityId}
+              value={filters.location}
+              onValueChange={(value) =>
+                onFiltersChange({ ...filters, location: value })
               }
             />
           </div>

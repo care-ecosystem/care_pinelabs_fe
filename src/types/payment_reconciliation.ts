@@ -63,4 +63,7 @@ export type PaymentReconciliation = {
   target_invoice: Invoice;
   account: Account;
   is_credit_note: boolean;
+  meta?: {
+    pinelabs?: Record<string, unknown>;
+  };
 };

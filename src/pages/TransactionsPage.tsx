@@ -5,7 +5,6 @@ import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
-import { PaymentReconciliation } from "@/types/payment_reconciliation";
 
 type TransactionsPageProps = {
   facilityId: string;
@@ -14,12 +13,13 @@ type TransactionsPageProps = {
 const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const [filters, setFilters] = useState<Filters>({});
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<PaymentReconciliation | null>(null);
+  const [selectedTransactionId, setSelectedTransactionId] = useState<
+    string | null
+  >(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const handleRowClick = (transaction: PaymentReconciliation) => {
-    setSelectedTransaction(transaction);
+  const handleRowClick = (transactionId: string) => {
+    setSelectedTransactionId(transactionId);
     setDetailsOpen(true);
   };
 
@@ -32,7 +32,11 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         </p>
       </div>
 
-      <TransactionFilters filters={filters} onFiltersChange={setFilters} />
+      <TransactionFilters
+        facilityId={facilityId}
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
 
       <TransactionsTable
         facilityId={facilityId}
@@ -43,7 +47,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
       <TransactionDetailsSheet
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        transaction={selectedTransaction}
+        transactionId={selectedTransactionId}
       />
     </div>
   );

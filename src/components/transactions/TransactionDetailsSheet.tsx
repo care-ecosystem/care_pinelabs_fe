@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import {
@@ -15,21 +15,59 @@ import {
 } from "@/types/payment_reconciliation";
 import { formatCurrency } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
+import { useQuery } from "@tanstack/react-query";
+import { apis } from "@/apis";
+import { Loader2Icon } from "lucide-react";
+import { MetaTable } from "./MetaTable";
 
 type TransactionDetailsSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  transaction: PaymentReconciliation | null;
+  transactionId: string | null;
 };
 
 export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
   open,
   onOpenChange,
-  transaction,
+  transactionId,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
 
-  if (!transaction) return null;
+  const {
+    data: transaction,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["transaction_status", transactionId],
+    queryFn: () =>
+      apis.gateway.transaction_status({
+        payment_reconciliation: transactionId!,
+      }),
+    enabled: !!transactionId && open,
+  });
+
+  useEffect(() => {
+    if (open && transactionId) {
+      refetch();
+    }
+  }, [open, transactionId, refetch]);
+
+  // Extract terminal ID from meta.pinelabs
+  const terminalId = useMemo(() => {
+    if (!transaction?.meta?.pinelabs) return null;
+    const pinelabs = transaction.meta.pinelabs as Record<string, unknown>;
+    return pinelabs.terminal_id as string | null;
+  }, [transaction]);
+
+  // Fetch terminal details if terminal ID exists
+  const { data: terminal } = useQuery({
+    queryKey: ["pinelabs_terminal", terminalId],
+    queryFn: () => apis.pinelabs_terminals.get(terminalId!),
+    enabled: !!terminalId,
+  });
+
+  if (!transactionId) return null;
 
   const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
     switch (outcome) {
@@ -54,7 +92,21 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 py-6">
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2Icon className="h-6 w-6 animate-spin mr-2" />
+            <span>{t("loading_transactions")}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="py-6 text-center text-red-600">
+            {t("error_loading_transactions")}
+          </div>
+        )}
+
+        {transaction && (
+          <div className="space-y-6 py-6">
           {/* Status */}
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1">
@@ -87,120 +139,29 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
             </p>
           </div>
 
-          {/* Payment Method */}
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              {t("payment_method")}
-            </p>
-            <p className="text-base">
-              {t(`payment_method_${transaction.method}`, transaction.method)}
-            </p>
-          </div>
-
-          {/* Date & Time */}
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              {t("date_time")}
-            </p>
-            <p className="text-base">
-              {dayjs(transaction.payment_datetime).format(
-                "MMMM D, YYYY h:mm A",
-              )}
-            </p>
-          </div>
-
-          {/* Reference Number (RRN) */}
-          {transaction.reference_number && (
+          {/* Terminal Information */}
+          {terminal && (
             <div>
               <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("rrn")}
-              </p>
-              <p className="text-base font-mono">
-                {transaction.reference_number}
-              </p>
-            </div>
-          )}
-
-          {/* Approval Code */}
-          {transaction.authorization && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("approval_code")}
-              </p>
-              <p className="text-base font-mono">{transaction.authorization}</p>
-            </div>
-          )}
-
-          {/* Tendered Amount */}
-          {transaction.tendered_amount && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("tendered_amount")}
+                {t("terminal")}
               </p>
               <p className="text-base">
-                {formatCurrency(Number(transaction.tendered_amount))}
+                {terminal.name} ({terminal.client_id})
               </p>
             </div>
           )}
 
-          {/* Returned Amount */}
-          {transaction.returned_amount &&
-            Number(transaction.returned_amount) > 0 && (
-              <div>
-                <p className="text-sm font-medium text-gray-500 mb-1">
-                  {t("returned_amount")}
-                </p>
-                <p className="text-base">
-                  {formatCurrency(Number(transaction.returned_amount))}
-                </p>
-              </div>
-            )}
-
-          {/* Note */}
-          {transaction.note && (
+          {/* Pinelabs Meta Data */}
+          {transaction.meta?.pinelabs && (
             <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("note")}
+              <p className="text-sm font-medium text-gray-500 mb-2">
+                {t("pinelabs_details")}
               </p>
-              <p className="text-base text-gray-700">{transaction.note}</p>
+              <MetaTable data={transaction.meta.pinelabs} />
             </div>
           )}
-
-          {/* Disposition */}
-          {transaction.disposition && (
-            <div>
-              <p className="text-sm font-medium text-gray-500 mb-1">
-                {t("disposition")}
-              </p>
-              <p className="text-base text-gray-700">
-                {transaction.disposition}
-              </p>
-            </div>
-          )}
-
-          {/* Transaction Type */}
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              {t("transaction_type")}
-            </p>
-            <p className="text-base">
-              {t(
-                `reconciliation_type_${transaction.reconciliation_type}`,
-                transaction.reconciliation_type,
-              )}
-            </p>
-          </div>
-
-          {/* Transaction Kind */}
-          <div>
-            <p className="text-sm font-medium text-gray-500 mb-1">
-              {t("transaction_kind")}
-            </p>
-            <p className="text-base">
-              {t(`kind_${transaction.kind}`, transaction.kind)}
-            </p>
-          </div>
         </div>
+        )}
       </SheetContent>
     </Sheet>
   );
