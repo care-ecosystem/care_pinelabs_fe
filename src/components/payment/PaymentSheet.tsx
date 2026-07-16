@@ -1,5 +1,6 @@
 import { CreditCard, Link2Icon, QrCode, Smartphone } from "lucide-react";
 import { FC, useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,9 @@ import {
 } from "@/components/ui/sheet";
 
 import { apis } from "@/apis";
+import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
+import { getPaymentMethodLabel } from "@/lib/paymentMethods";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
 import { LocationSelect } from "@/components/payment/LocationSelect";
@@ -52,32 +55,26 @@ const PAYMENT_METHODS = [
     method: PaymentReconciliationPaymentMethod.ddpo,
     mode: PaymentMode.BHARAT_QR,
     icon: QrCode,
-    label: "Bharat QR",
   },
   {
     value: "card",
     method: PaymentReconciliationPaymentMethod.debc,
     mode: PaymentMode.CARD,
     icon: CreditCard,
-    label: "Card",
   },
   {
     value: "upi",
     method: PaymentReconciliationPaymentMethod.ddpo,
     mode: PaymentMode.UPI,
     icon: Smartphone,
-    label: "UPI",
   },
 ] as const;
-
-const getPaymentMethodLabel = (paymentMethod: string): string =>
-  PAYMENT_METHODS.find((m) => m.value === paymentMethod)?.label ||
-  paymentMethod.toUpperCase();
 
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
 }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -93,7 +90,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
   // Amount due on this specific invoice — mirrors the native Record Payment
-  // sheet's "Amount Due" (PaymentReconciliationSheet.tsx), not the account's
+  // sheet's t("amount_due") (PaymentReconciliationSheet.tsx), not the account's
   // aggregate balance, which can span other invoices.
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
@@ -102,11 +99,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
       if (pr.outcome === PaymentReconciliationOutcome.complete) {
-        toast.success("Payment completed successfully");
+        toast.success(t("toast_payment_completed_successfully"));
       } else if (pr.outcome === PaymentReconciliationOutcome.error) {
-        toast.error("Payment failed on the terminal");
+        toast.error(t("toast_payment_failed_on_terminal"));
       } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
-        toast.warning("Payment partially completed on the terminal");
+        toast.warning(t("toast_payment_partially_completed"));
       }
       queryClient.invalidateQueries({ queryKey: ["invoice", invoice.id] });
       queryClient.invalidateQueries({
@@ -119,7 +116,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleTimeout = useCallback(() => {
     setPollingTimedOut(true);
     toast.warning(
-      "Transaction timed out. Please verify the status on the terminal.",
+      t("toast_transaction_timed_out"),
     );
   }, []);
 
@@ -147,18 +144,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const buildUploadPayload =
     useCallback((): UploadTransactionRequest | null => {
       if (!selectedTerminal) {
-        toast.error("Please select a terminal");
+        toast.error(t("error_please_select_terminal"));
         return null;
       }
       if (!(amount > 0)) {
-        toast.error("Tendered amount must be greater than zero");
+        toast.error(t("error_tendered_amount_must_be_positive"));
         return null;
       }
       const selectedMethod = PAYMENT_METHODS.find(
         (m) => m.value === paymentMethod,
       );
       if (!selectedMethod) {
-        toast.error("Please select a payment method");
+        toast.error(t("error_payment_method_required"));
         return null;
       }
 
@@ -186,12 +183,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       setPrId(data.id);
       setSettledPr(null);
       setPollingTimedOut(false);
-      toast.success("Collect the payment on the POS terminal");
+      toast.success(t("toast_collect_payment_on_terminal"));
     },
     onError: (error: unknown) => {
       console.error("Upload Transaction: ", error);
       toast.error(
-        getPinelabsErrorMessage(error, "Failed to initiate the transaction"),
+        getPinelabsErrorMessage(error, t("error_failed_to_initiate_transaction")),
       );
     },
   });
@@ -199,14 +196,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const cancelTransactionMutation = useMutation({
     mutationFn: apis.gateway.cancel_transaction,
     onSuccess: () => {
-      toast.success("Transaction cancelled");
+      toast.success(t("toast_transaction_cancelled"));
       setIsOpen(false);
       resetSheetState();
     },
     onError: (error: unknown) => {
       console.error("Cancel Transaction: ", error);
       toast.error(
-        getPinelabsErrorMessage(error, "Failed to cancel the transaction"),
+        getPinelabsErrorMessage(error, t("error_failed_to_cancel_transaction")),
       );
     },
   });
@@ -231,7 +228,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     // Lock the sheet open mid-transaction — dismissing would orphan a queued
     // PR. Users must wait for the outcome or explicitly Cancel.
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
-      toast.warning("Please wait for the transaction to complete or cancel it.");
+      toast.warning(t("toast_wait_for_transaction"));
       return;
     }
     setIsOpen(open);
@@ -244,12 +241,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     !pollingTimedOut &&
     !isTransactionInProgress;
 
+  // Get the payment method enum value for the current selection
+  const selectedMethodConfig = PAYMENT_METHODS.find((m) => m.value === paymentMethod);
+  const currentPaymentMethodLabel = selectedMethodConfig
+    ? t(getPaymentMethodLabel(selectedMethodConfig.method))
+    : paymentMethod.toUpperCase();
+
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Button variant="ghost" size="sm" className="w-full justify-start">
           <Link2Icon className="h-4 w-4" />
-          Collect via Pinelabs Terminal
+          {t("collect_via_pinelabs_terminal")}
         </Button>
       </SheetTrigger>
       <SheetContent
@@ -258,24 +261,24 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         onEscapeKeyDown={(e) => {
           if (isTransactionInProgress || uploadTransactionMutation.isPending) {
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
+            toast.warning(t("toast_wait_for_transaction"));
             return;
           }
         }}
         onInteractOutside={(e) => {
           if (isTransactionInProgress || uploadTransactionMutation.isPending) {
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
+            toast.warning(t("toast_wait_for_transaction"));
             return;
           }
         }}
       >
         <SheetHeader>
           <SheetTitle className="m-0">
-            Receive Payment via Pinelabs Terminal
+            {t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            Recording payment for invoice {invoice.number}
+            {t("recording_payment_for_invoice", { invoiceNumber: invoice.number })}
           </SheetDescription>
         </SheetHeader>
 
@@ -285,22 +288,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               {showSuccess && livePr ? (
                 <SuccessView
                   pr={livePr}
-                  paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+                  paymentMethodLabel={currentPaymentMethodLabel}
                 />
               ) : showFailure && livePr ? (
                 <FailureView
                   pr={livePr}
-                  paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+                  paymentMethodLabel={currentPaymentMethodLabel}
                   amount={amount}
                 />
               ) : pollingTimedOut ? (
                 <TimedOutView
-                  paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+                  paymentMethodLabel={currentPaymentMethodLabel}
                   amount={amount}
                 />
               ) : (
                 <InProgressView
-                  paymentMethodLabel={getPaymentMethodLabel(paymentMethod)}
+                  paymentMethodLabel={currentPaymentMethodLabel}
                   amount={amount}
                   isPolling={isPolling}
                 />
@@ -310,14 +313,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             <div className="space-y-6">
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
                 <div className="flex text-sm justify-center text-gray-700">
-                  Invoice total:
+                  {t("invoice_total")}
                   <p className="font-bold ml-1">
                     {formatCurrency(invoice.total_gross)}
                   </p>
                 </div>
 
                 <div className="bg-white p-3 text-center">
-                  <p className="text-sm text-gray-600 mb-1">Amount Due</p>
+                  <p className="text-sm text-gray-600 mb-1">{t("amount_due")}</p>
                   <p className="text-3xl font-bold text-gray-900">
                     {formatCurrency(amount)}
                   </p>
@@ -334,7 +337,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-950">Payment Method</Label>
+                <Label className="text-gray-950">{t("payment_method")}</Label>
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
@@ -355,7 +358,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                         <div className="grid grow justify-items-center gap-1">
                           <Icon className="size-5 text-gray-600" />
                           <span className="text-sm font-medium text-center text-gray-950">
-                            {method.label}
+                            {t(getPaymentMethodLabel(method.method))}
                           </span>
                         </div>
                       </Label>
@@ -365,7 +368,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-950">Location</Label>
+                <Label className="text-gray-950">{t("location")}</Label>
                 <LocationSelect
                   facilityId={facilityId}
                   value={locationId}
@@ -374,7 +377,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-gray-950">Select Terminal</Label>
+                <Label className="text-gray-950">{t("select_terminal")}</Label>
                 <TerminalSelect
                   facilityId={facilityId}
                   value={selectedTerminal}
@@ -392,7 +395,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               onClick={handleCloseAfterTerminal}
               className="w-full"
             >
-              Close
+              {t("close")}
             </Button>
           ) : isTransactionInProgress ? (
             <Button
@@ -401,7 +404,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               loading={cancelTransactionMutation.isPending}
               className="w-full"
             >
-              Cancel Transaction
+              {t("cancel_transaction")}
             </Button>
           ) : (
             <div className="flex justify-between gap-3 w-full">
@@ -410,7 +413,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 variant="outline"
                 onClick={() => handleOpenChange(false)}
               >
-                Cancel
+                {t("cancel")}
               </Button>
               <Button
                 variant="primary"
@@ -419,7 +422,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 loading={uploadTransactionMutation.isPending}
                 className="flex-1"
               >
-                Send Payment Request
+                {t("send_payment_request")}
               </Button>
             </div>
           )}

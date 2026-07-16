@@ -1,1 +1,59 @@
-{}
+{
+  "collect_via_pinelabs_terminal": "Collect via Pinelabs Terminal",
+  "receive_payment_via_pinelabs_terminal": "Receive Payment via Pinelabs Terminal",
+  "recording_payment_for_invoice": "Recording payment for invoice {{invoiceNumber}}",
+
+  "payment_method": "Payment Method",
+  "amount": "Amount",
+  "amount_due": "Amount Due",
+  "invoice_total": "Invoice total:",
+  "select_terminal": "Select Terminal",
+  "location": "Location",
+
+  "payment_method_debit_card": "Debit Card",
+  "payment_method_credit_card": "Credit Card",
+  "payment_method_cash_upi": "Cash / UPI",
+  "payment_method_bharat_qr": "Bharat QR",
+  "payment_method_card": "Card",
+  "payment_method_upi": "UPI",
+
+  "transaction_in_progress": "Transaction in progress…",
+  "waiting_for_customer": "Waiting for the customer to complete the payment on the POS terminal.",
+  "checking_status": "Checking status…",
+
+  "payment_completed_successfully": "Payment Completed Successfully",
+  "rrn": "RRN",
+  "approval_code": "Approval Code",
+  "completed_at": "Completed At",
+
+  "payment_failed_on_terminal": "Payment Failed on the Terminal",
+  "payment_partially_completed": "Payment Partially Completed",
+
+  "transaction_timed_out": "Transaction Timed Out",
+  "transaction_timeout_message": "We stopped waiting for an outcome from the terminal. Please verify the payment status on the POS device directly before retrying.",
+
+  "close": "Close",
+  "cancel": "Cancel",
+  "collect_payment": "Collect Payment",
+  "send_payment_request": "Send Payment Request",
+  "cancel_transaction": "Cancel Transaction",
+
+  "selected_payment_method_not_supported": "Selected payment method is not supported.",
+  "pinelabs_disabled_reason_no_terminals": "No Pinelabs terminals configured for this facility.",
+
+  "toast_payment_completed_successfully": "Payment completed successfully",
+  "toast_payment_failed_on_terminal": "Payment failed on the terminal",
+  "toast_payment_partially_completed": "Payment partially completed on the terminal",
+  "toast_transaction_timed_out": "Transaction timed out. Please verify the status on the terminal.",
+  "toast_collect_payment_on_terminal": "Collect the payment on the POS terminal",
+  "toast_transaction_cancelled": "Transaction cancelled",
+  "toast_wait_for_transaction": "Please wait for the transaction to complete or cancel it.",
+
+  "error_please_select_terminal": "Please select a terminal",
+  "error_account_required": "Account is required to record a payment",
+  "error_payment_method_required": "Payment method is required",
+  "error_tendered_amount_must_be_positive": "Tendered amount must be greater than zero",
+  "error_returned_amount_must_be_less": "Returned amount must be less than tendered amount",
+  "error_failed_to_initiate_transaction": "Failed to initiate the transaction",
+  "error_failed_to_cancel_transaction": "Failed to cancel the transaction"
+}
