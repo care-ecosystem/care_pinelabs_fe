@@ -101,15 +101,10 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
     paymentMethod as PaymentReconciliationPaymentMethod,
   );
 
-  // Amount due on this specific invoice — mirrors the native Record Payment
-  // sheet's "Amount Due" (PaymentReconciliationSheet.tsx), not whatever the
-  // host form's `tendered_amount`/`amount` field was defaulted to.
   const invoiceAmountDue = invoice
     ? Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0")
     : undefined;
 
-  // Fall back to legacy `amount` field for parents that don't yet split the
-  // tendered / returned amounts.
   const tenderedRaw =
     invoiceAmountDue ??
     form?.getValues("tendered_amount") ??

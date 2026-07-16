@@ -1,9 +1,11 @@
 import { CreditCard, Link2Icon, QrCode, Smartphone } from "lucide-react";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { ShortcutBadge } from "@/components/common/ShortcutBadge";
+import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -87,10 +89,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     null,
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Amount due on this specific invoice — mirrors the native Record Payment
-  // sheet's t("amount_due") (PaymentReconciliationSheet.tsx), not the account's
-  // aggregate balance, which can span other invoices.
+  useButtonShortcut({
+    key: "t",
+    enabled: !isOpen,
+    onTrigger: useCallback(() => triggerButtonRef.current?.click(), []),
+  });
+
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
 
@@ -246,9 +252,15 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="w-full justify-start">
+        <Button
+          ref={triggerButtonRef}
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start"
+        >
           <Link2Icon className="h-4 w-4" />
           {t("collect_via_pinelabs_terminal")}
+          <ShortcutBadge label="T" />
         </Button>
       </SheetTrigger>
       <SheetContent
