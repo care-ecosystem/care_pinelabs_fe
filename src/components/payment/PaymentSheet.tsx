@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { ShortcutBadge } from "@/components/common/ShortcutBadge";
 import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -260,7 +259,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         >
           <Link2Icon className="h-4 w-4" />
           {t("collect_via_pinelabs_terminal")}
-          <ShortcutBadge label="T" />
         </Button>
       </SheetTrigger>
       <SheetContent
