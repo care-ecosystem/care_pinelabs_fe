@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/popover";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
 } from "@/types/payment_reconciliation";
 import { cn } from "@/lib/utils";
@@ -62,7 +62,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Date From */}
           <div className="space-y-2">
             <Label>{t("date_from")}</Label>
@@ -127,14 +127,14 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           <div className="space-y-2">
             <Label>{t("status")}</Label>
             <Select
-              value={filters.outcome || undefined}
+              value={filters.status || undefined}
               onValueChange={(value) => {
                 if (value === "clear") {
-                  onFiltersChange({ ...filters, outcome: "" });
+                  onFiltersChange({ ...filters, status: "" });
                 } else {
                   onFiltersChange({
                     ...filters,
-                    outcome: value as PaymentReconciliationOutcome,
+                    status: value as PaymentReconciliationStatus,
                   });
                 }
               }}
@@ -143,17 +143,17 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 <SelectValue placeholder={t("all_statuses")} />
               </SelectTrigger>
               <SelectContent>
-                {filters.outcome && (
+                {filters.status && (
                   <SelectItem value="clear">{t("all_statuses")}</SelectItem>
                 )}
-                <SelectItem value={PaymentReconciliationOutcome.complete}>
-                  {t("status_complete")}
+                <SelectItem value={PaymentReconciliationStatus.active}>
+                  {t("status_completed")}
                 </SelectItem>
-                <SelectItem value={PaymentReconciliationOutcome.error}>
-                  {t("status_error")}
+                <SelectItem value={PaymentReconciliationStatus.draft}>
+                  {t("status_pending")}
                 </SelectItem>
-                <SelectItem value={PaymentReconciliationOutcome.partial}>
-                  {t("status_partial")}
+                <SelectItem value={PaymentReconciliationStatus.cancelled}>
+                  {t("status_cancelled")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -190,18 +190,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 </SelectItem>
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Invoice Search */}
-          <div className="space-y-2">
-            <Label>{t("invoice_number")}</Label>
-            <Input
-              placeholder={t("search_invoice")}
-              value={filters.invoiceNumber || ""}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, invoiceNumber: e.target.value })
-              }
-            />
           </div>
 
           {/* Location Filter */}

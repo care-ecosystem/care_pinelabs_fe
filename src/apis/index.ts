@@ -113,9 +113,8 @@ export const apis = {
         ordering?: string;
         created_date_after?: string;
         created_date_before?: string;
-        outcome?: string;
+        status?: string;
         method?: string;
-        invoice_number?: string;
         location?: string;
       },
     ) => {
