@@ -1,6 +1,8 @@
 import {
   CancelTransactionRequest,
   PaymentReconciliationRead,
+  RefreshTransactionStatusRequest,
+  RefreshTransactionStatusResponse,
   TransactionStatusRequest,
   UploadTransactionRequest,
 } from "@/types/gateway";
@@ -103,6 +105,15 @@ export const apis = {
         },
       );
     },
+    refresh_transaction_status: async (data: RefreshTransactionStatusRequest) => {
+      return await request<RefreshTransactionStatusResponse>(
+        "/api/care_pinelabs/gateway/refresh_transaction_status/",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      );
+    },
   },
   payment_reconciliations: {
     list: async (
@@ -113,9 +124,8 @@ export const apis = {
         ordering?: string;
         created_date_after?: string;
         created_date_before?: string;
-        outcome?: string;
+        status?: string;
         method?: string;
-        invoice_number?: string;
         location?: string;
       },
     ) => {

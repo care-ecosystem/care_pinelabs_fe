@@ -38,6 +38,15 @@ export type CancelTransactionRequest = {
   payment_reconciliation: string;
 };
 
+export type RefreshTransactionStatusRequest = {
+  payment_reconciliation: string;
+};
+
+export type RefreshTransactionStatusResponse = {
+  status_changed: boolean;
+  payment_reconciliation: PaymentReconciliation;
+};
+
 export type PaymentReconciliationRead = PaymentReconciliation;
 
 export type PinelabsErrorEntry = {

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { FC, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,6 +24,7 @@ import {
   PaymentReconciliationOutcome,
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
+  PaymentReconciliationStatus,
 } from "@/types/payment_reconciliation";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
@@ -43,6 +45,7 @@ import { apis } from "@/apis";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
 import { getPaymentMethodLabel } from "@/lib/paymentMethods";
+import { MetaTable } from "@/components/transactions/MetaTable";
 
 export type PaymentDialogProps = {
   facilityId: string;
@@ -77,6 +80,32 @@ const derivePaymentMode = (method: string): PaymentMode =>
   CARD_METHODS.has(method as PaymentReconciliationPaymentMethod)
     ? PaymentMode.CARD
     : PaymentMode.BHARAT_QR;
+
+const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
+  switch (status) {
+    case PaymentReconciliationStatus.active:
+      return "default";
+    case PaymentReconciliationStatus.draft:
+      return "secondary";
+    case PaymentReconciliationStatus.cancelled:
+      return "destructive";
+    default:
+      return "outline";
+  }
+};
+
+const getStatusLabel = (status: PaymentReconciliationStatus) => {
+  switch (status) {
+    case PaymentReconciliationStatus.active:
+      return "status_completed";
+    case PaymentReconciliationStatus.draft:
+      return "status_pending";
+    case PaymentReconciliationStatus.cancelled:
+      return "status_cancelled";
+    default:
+      return "status";
+  }
+};
 
 export const PaymentDialog: FC<PaymentDialogProps> = ({
   facilityId,
@@ -529,6 +558,12 @@ export const SuccessView: FC<SuccessViewProps> = ({
         ) : null}
       </div>
       <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <Label className="text-gray-600">{t("status")}:</Label>
+          <Badge variant={getStatusBadgeVariant(pr.status)}>
+            {t(getStatusLabel(pr.status))}
+          </Badge>
+        </div>
         <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
         <SummaryRow label={t("amount")} value={formatCurrency(amountValue)} />
         {pr.authorization ? (
@@ -541,6 +576,16 @@ export const SuccessView: FC<SuccessViewProps> = ({
           />
         ) : null}
       </div>
+
+      {/* Pinelabs Meta Data */}
+      {pr.meta?.pinelabs && (
+        <div>
+          <p className="text-sm font-medium text-gray-500 mb-2">
+            {t("pinelabs_details")}
+          </p>
+          <MetaTable data={pr.meta.pinelabs} />
+        </div>
+      )}
     </div>
   );
 };
@@ -594,12 +639,28 @@ export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amou
         ) : null}
       </div>
       <div className="space-y-2">
+        <div className="flex items-center justify-between text-sm">
+          <Label className="text-gray-600">{t("status")}:</Label>
+          <Badge variant={getStatusBadgeVariant(pr.status)}>
+            {t(getStatusLabel(pr.status))}
+          </Badge>
+        </div>
         <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
         <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
         {pr.reference_number ? (
           <SummaryRow label={t("rrn")} value={pr.reference_number} mono />
         ) : null}
       </div>
+
+      {/* Pinelabs Meta Data */}
+      {pr.meta?.pinelabs && (
+        <div>
+          <p className="text-sm font-medium text-gray-500 mb-2">
+            {t("pinelabs_details")}
+          </p>
+          <MetaTable data={pr.meta.pinelabs} />
+        </div>
+      )}
     </div>
   );
 };

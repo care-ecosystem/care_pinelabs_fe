@@ -20,13 +20,15 @@ import {
 } from "@/components/ui/popover";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
 } from "@/types/payment_reconciliation";
 import { cn } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
-import { CalendarIcon, XIcon } from "lucide-react";
-import { LocationSelect } from "@/components/payment/LocationSelect";
+import { CalendarIcon, XIcon, Loader2Icon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apis } from "@/apis";
+import { LocationTypeIcons } from "@/types/location";
 
 type TransactionFiltersProps = {
   facilityId: string;
@@ -41,6 +43,18 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
 
+  const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
+    queryKey: ["pinelabs_locations", facilityId],
+    queryFn: () =>
+      apis.locations.list(facilityId, {
+        status: "active",
+        mine: true,
+      }),
+    enabled: !!facilityId,
+  });
+
+  const locations = locationsResponse?.results || [];
+
   const handleClearFilters = () => {
     onFiltersChange({});
   };
@@ -48,7 +62,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Date From */}
           <div className="space-y-2">
             <Label>{t("date_from")}</Label>
@@ -113,14 +127,14 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           <div className="space-y-2">
             <Label>{t("status")}</Label>
             <Select
-              value={filters.outcome || undefined}
+              value={filters.status || undefined}
               onValueChange={(value) => {
                 if (value === "clear") {
-                  onFiltersChange({ ...filters, outcome: "" });
+                  onFiltersChange({ ...filters, status: "" });
                 } else {
                   onFiltersChange({
                     ...filters,
-                    outcome: value as PaymentReconciliationOutcome,
+                    status: value as PaymentReconciliationStatus,
                   });
                 }
               }}
@@ -129,17 +143,17 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 <SelectValue placeholder={t("all_statuses")} />
               </SelectTrigger>
               <SelectContent>
-                {filters.outcome && (
+                {filters.status && (
                   <SelectItem value="clear">{t("all_statuses")}</SelectItem>
                 )}
-                <SelectItem value={PaymentReconciliationOutcome.complete}>
-                  {t("status_complete")}
+                <SelectItem value={PaymentReconciliationStatus.active}>
+                  {t("status_completed")}
                 </SelectItem>
-                <SelectItem value={PaymentReconciliationOutcome.error}>
-                  {t("status_error")}
+                <SelectItem value={PaymentReconciliationStatus.draft}>
+                  {t("status_pending")}
                 </SelectItem>
-                <SelectItem value={PaymentReconciliationOutcome.partial}>
-                  {t("status_partial")}
+                <SelectItem value={PaymentReconciliationStatus.cancelled}>
+                  {t("status_cancelled")}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -178,28 +192,48 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             </Select>
           </div>
 
-          {/* Invoice Search */}
-          <div className="space-y-2">
-            <Label>{t("invoice_number")}</Label>
-            <Input
-              placeholder={t("search_invoice")}
-              value={filters.invoiceNumber || ""}
-              onChange={(e) =>
-                onFiltersChange({ ...filters, invoiceNumber: e.target.value })
-              }
-            />
-          </div>
-
           {/* Location Filter */}
           <div className="space-y-2">
             <Label>{t("location")}</Label>
-            <LocationSelect
-              facilityId={facilityId}
-              value={filters.location}
-              onValueChange={(value) =>
-                onFiltersChange({ ...filters, location: value })
-              }
-            />
+            <Select
+              value={filters.location || undefined}
+              onValueChange={(value) => {
+                if (value === "clear") {
+                  onFiltersChange({ ...filters, location: "" });
+                } else {
+                  onFiltersChange({ ...filters, location: value });
+                }
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={t("all_locations")} />
+              </SelectTrigger>
+              <SelectContent>
+                {isLocationsLoading ? (
+                  <div className="flex items-center justify-center gap-2 p-2">
+                    <Loader2Icon className="size-4 animate-spin" />
+                    <p className="text-sm text-gray-600">{t("loading")}</p>
+                  </div>
+                ) : (
+                  <>
+                    {filters.location && (
+                      <SelectItem value="clear">{t("all_locations")}</SelectItem>
+                    )}
+                    {locations.map((location) => {
+                      const Icon = LocationTypeIcons[location.form];
+                      return (
+                        <SelectItem key={location.id} value={location.id}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-gray-500 shrink-0" />
+                            <span className="truncate">{location.name}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

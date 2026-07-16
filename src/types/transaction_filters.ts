@@ -1,14 +1,13 @@
 import {
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
 } from "@/types/payment_reconciliation";
 
 export type TransactionFilters = {
   dateFrom?: Date;
   dateTo?: Date;
-  outcome?: PaymentReconciliationOutcome | "";
+  status?: PaymentReconciliationStatus | "";
   method?: PaymentReconciliationPaymentMethod | "";
-  invoiceNumber?: string;
   location?: string;
 };
 
@@ -18,8 +17,7 @@ export type TransactionListParams = {
   ordering: string;
   created_date_after?: string;
   created_date_before?: string;
-  outcome?: string;
+  status?: string;
   method?: string;
-  invoice_number?: string;
   location?: string;
 };

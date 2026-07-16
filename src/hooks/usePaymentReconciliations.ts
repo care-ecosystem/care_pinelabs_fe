@@ -22,14 +22,11 @@ export const usePaymentReconciliations = (
   if (filters.dateTo) {
     params.created_date_before = dayjs(filters.dateTo).format("YYYY-MM-DD");
   }
-  if (filters.outcome && String(filters.outcome) !== "") {
-    params.outcome = String(filters.outcome);
+  if (filters.status && String(filters.status) !== "") {
+    params.status = String(filters.status);
   }
   if (filters.method && String(filters.method) !== "") {
     params.method = String(filters.method);
-  }
-  if (filters.invoiceNumber && filters.invoiceNumber.trim() !== "") {
-    params.invoice_number = filters.invoiceNumber.trim();
   }
   if (filters.location && filters.location.trim() !== "") {
     params.location = filters.location.trim();
