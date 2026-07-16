@@ -30,6 +30,8 @@ export interface LocationRead {
   id: string;
   name: string;
   form: LocationForm;
+  has_children?: boolean;
+  parent?: LocationRead | null;
 }
 
 export const LocationTypeIcons = {
