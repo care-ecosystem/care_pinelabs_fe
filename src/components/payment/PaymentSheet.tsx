@@ -92,18 +92,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
 
-  // "t" to open this sheet while its trigger is rendered (i.e. the record
-  // payment dropdown is open). Disabled while the sheet itself is open so
-  // typing "t" elsewhere in the sheet's form doesn't reopen/interfere.
   useButtonShortcut({
     key: "t",
     enabled: !isOpen,
     onTrigger: useCallback(() => triggerButtonRef.current?.click(), []),
   });
 
-  // Amount due on this specific invoice — mirrors the native Record Payment
-  // sheet's t("amount_due") (PaymentReconciliationSheet.tsx), not the account's
-  // aggregate balance, which can span other invoices.
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
 
