@@ -5,6 +5,7 @@ import {
   isBefore,
   isSameDay,
   isValid,
+  parse,
   subDays,
   subMonths,
   subWeeks,
@@ -66,6 +67,9 @@ const presetOptions: DateRangeOption[] = [
     getDateRange: () => ({ from: subYears(new Date(), 1), to: new Date() }),
   },
 ];
+
+const parseLocalDateInput = (value: string): Date | undefined =>
+  value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
 
 type DateRangeFilterProps = {
   dateFrom?: Date;
@@ -218,7 +222,7 @@ export const DateRangeFilter: FC<DateRangeFilterProps> = ({
                   },
                 }}
                 className="w-full"
-                captionLayout="dropdown"
+                captionLayout="label"
                 endMonth={new Date(2100, 11, 31)}
                 monthCaptionClassName="self-center"
                 rangeMiddleClassName="bg-primary/10 [&>button]:rounded-md"
@@ -226,31 +230,35 @@ export const DateRangeFilter: FC<DateRangeFilterProps> = ({
               <div className="my-2 border-t border-gray-200" />
               <div className="flex flex-col gap-2 p-3 pt-0">
                 <div>
-                  <label className="text-sm text-gray-600 mb-1 block capitalize">
+                  <label
+                    htmlFor="date-range-filter-from"
+                    className="text-sm text-gray-600 mb-1 block capitalize"
+                  >
                     {t("from")}
                   </label>
                   <Input
+                    id="date-range-filter-from"
                     type="date"
                     value={pendingFrom ? format(pendingFrom, "yyyy-MM-dd") : ""}
                     onChange={(e) =>
-                      setPendingFrom(
-                        e.target.value ? new Date(e.target.value) : undefined,
-                      )
+                      setPendingFrom(parseLocalDateInput(e.target.value))
                     }
                     className="flex flex-col justify-between text-sm"
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-600 mb-1 block capitalize">
+                  <label
+                    htmlFor="date-range-filter-to"
+                    className="text-sm text-gray-600 mb-1 block capitalize"
+                  >
                     {t("to")}
                   </label>
                   <Input
+                    id="date-range-filter-to"
                     type="date"
                     value={pendingTo ? format(pendingTo, "yyyy-MM-dd") : ""}
                     onChange={(e) =>
-                      setPendingTo(
-                        e.target.value ? new Date(e.target.value) : undefined,
-                      )
+                      setPendingTo(parseLocalDateInput(e.target.value))
                     }
                     className="flex flex-col justify-between text-sm"
                   />

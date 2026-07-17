@@ -81,7 +81,7 @@ function Calendar({
     }, [yearRange]),
   );
 
-  const { onPrevClick, startMonth, endMonth } = props;
+  const { onPrevClick, onNextClick, startMonth, endMonth } = props;
 
   const columnsDisplayed = navView === "years" ? 1 : numberOfMonths;
 
@@ -214,6 +214,7 @@ function Calendar({
             startMonth={startMonth}
             endMonth={endMonth}
             onPrevClick={onPrevClick}
+            onNextClick={onNextClick}
           />
         ),
         CaptionLabel: (props) => (
@@ -349,7 +350,7 @@ function Nav({
         variant="outline"
         className="absolute left-0 size-7 bg-transparent p-0 opacity-80 hover:opacity-100"
         type="button"
-        tabIndex={isPreviousDisabled ? undefined : -1}
+        tabIndex={isPreviousDisabled ? -1 : undefined}
         disabled={isPreviousDisabled}
         aria-label={
           navView === "years"
@@ -367,7 +368,7 @@ function Nav({
         variant="outline"
         className="absolute right-0 size-7 bg-transparent p-0 opacity-80 hover:opacity-100"
         type="button"
-        tabIndex={isNextDisabled ? undefined : -1}
+        tabIndex={isNextDisabled ? -1 : undefined}
         disabled={isNextDisabled}
         aria-label={
           navView === "years"
@@ -398,6 +399,8 @@ function CaptionLabel({
   if (!showYearSwitcher) return <span {...props}>{children}</span>;
   return (
     <Button
+      {...props}
+      type="button"
       className="h-7 w-full truncate text-sm font-medium"
       variant="outline"
       size="sm"
