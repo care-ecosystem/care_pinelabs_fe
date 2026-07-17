@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +29,8 @@ import { CalendarIcon, XIcon, Loader2Icon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apis } from "@/apis";
 import { LocationTypeIcons } from "@/types/location";
+import { UserSelector } from "@/components/transactions/UserSelector";
+import { User } from "@/types/user";
 
 type TransactionFiltersProps = {
   facilityId: string;
@@ -42,6 +44,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   onFiltersChange,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
+  const [selectedUser, setSelectedUser] = useState<User | undefined>();
 
   const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
     queryKey: ["pinelabs_locations", facilityId],
@@ -56,6 +59,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
 
   const handleClearFilters = () => {
+    setSelectedUser(undefined);
     onFiltersChange({
       method: PaymentReconciliationPaymentMethod.ddpo, // Keep default method when clearing
     });
@@ -64,7 +68,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {/* Date From */}
           <div className="space-y-2">
             <Label>{t("date_from")}</Label>
@@ -231,6 +235,18 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 )}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("user")}</Label>
+            <UserSelector
+              facilityId={facilityId}
+              selectedUser={selectedUser}
+              onChange={(user) => {
+                setSelectedUser(user);
+                onFiltersChange({ ...filters, createdBy: user.id });
+              }}
+            />
           </div>
         </div>
 
