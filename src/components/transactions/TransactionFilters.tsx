@@ -244,7 +244,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
               selectedUser={selectedUser}
               onChange={(user) => {
                 setSelectedUser(user);
-                onFiltersChange({ ...filters, createdBy: user.id });
+                onFiltersChange({ ...filters, createdBy: user?.id || "" });
               }}
             />
           </div>

@@ -46,6 +46,9 @@ export const formatUserName = (user?: User) => {
     .join(" ");
 };
 
+export const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export const formatDate = (date?: string | Date, relative?: boolean) => {
   if (!date) {
     return "NA";

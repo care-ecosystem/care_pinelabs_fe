@@ -5,7 +5,7 @@ import { CheckIcon, ChevronDownIcon } from "lucide-react";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { apis } from "@/apis";
 import { User } from "@/types/user";
-import { formatUserName } from "@/lib/utils";
+import { formatUserName, sleep } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/common/Avatar";
 import {
@@ -22,10 +22,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+const SEARCH_DEBOUNCE_INTERVAL = 500;
+
 type UserSelectorProps = {
   facilityId: string;
   selectedUser?: User;
-  onChange: (user: User) => void;
+  onChange: (user?: User) => void;
 };
 
 export const UserSelector: FC<UserSelectorProps> = ({
@@ -39,11 +41,14 @@ export const UserSelector: FC<UserSelectorProps> = ({
 
   const { data, isLoading } = useQuery({
     queryKey: ["pinelabs_users", facilityId, search],
-    queryFn: () =>
-      apis.users.list(facilityId, {
-        limit: 20,
-        search_text: search || undefined,
-      }),
+    queryFn: async ({ signal }) => {
+      await sleep(SEARCH_DEBOUNCE_INTERVAL);
+      return apis.users.list(
+        facilityId,
+        { limit: 20, search_text: search || undefined },
+        signal,
+      );
+    },
     enabled: !!facilityId && open,
   });
 
@@ -90,6 +95,19 @@ export const UserSelector: FC<UserSelectorProps> = ({
             <CommandEmpty>
               {isLoading ? t("loading") : t("no_users_found")}
             </CommandEmpty>
+            {selectedUser && (
+              <CommandGroup>
+                <CommandItem
+                  onSelect={() => {
+                    onChange(undefined);
+                    setOpen(false);
+                  }}
+                  className="cursor-pointer"
+                >
+                  {t("all_users")}
+                </CommandItem>
+              </CommandGroup>
+            )}
             <CommandGroup>
               {users.map((user) => (
                 <CommandItem

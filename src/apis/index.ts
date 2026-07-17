@@ -26,6 +26,7 @@ export const apis = {
         offset?: number;
         search_text?: string;
       } = {},
+      signal?: AbortSignal,
     ) => {
       const cleanParams = Object.fromEntries(
         Object.entries(params).filter(([, value]) => value !== undefined),
@@ -33,6 +34,7 @@ export const apis = {
 
       return await request<PaginatedResponse<User>>(
         `/api/v1/facility/${facilityId}/users/${queryString(cleanParams)}`,
+        { signal },
       );
     },
   },
