@@ -6,6 +6,7 @@ import { TransactionFilters } from "@/components/transactions/TransactionFilters
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliation";
+import { Badge } from "@/components/ui/badge";
 
 type TransactionsPageProps = {
   facilityId: string;
@@ -20,16 +21,26 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     string | null
   >(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
 
   const handleRowClick = (transactionId: string) => {
     setSelectedTransactionId(transactionId);
     setDetailsOpen(true);
   };
 
+  const handleCountChange = (count: number) => {
+    setTotalCount(count);
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">{t("pinelabs_transactions")}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">{t("pinelabs_transactions")}</h1>
+          <Badge variant="secondary" className="text-base px-3 py-1">
+            {totalCount}
+          </Badge>
+        </div>
         <p className="text-gray-600">
           {t("pinelabs_transactions_description")}
         </p>
@@ -45,6 +56,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         facilityId={facilityId}
         filters={filters}
         onRowClick={handleRowClick}
+        onCountChange={handleCountChange}
       />
 
       <TransactionDetailsSheet
