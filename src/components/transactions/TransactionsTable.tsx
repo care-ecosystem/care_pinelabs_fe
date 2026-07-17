@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,6 +23,7 @@ type TransactionsTableProps = {
   facilityId: string;
   filters: TransactionFilters;
   onRowClick: (transactionId: string) => void;
+  onCountChange?: (count: number) => void;
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -31,6 +32,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   facilityId,
   filters,
   onRowClick,
+  onCountChange,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const [page, setPage] = useState(0);
@@ -40,6 +42,13 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     filters,
     { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
   );
+
+  // Update parent with count when data changes
+  useEffect(() => {
+    if (data?.count !== undefined && onCountChange) {
+      onCountChange(data.count);
+    }
+  }, [data?.count, onCountChange]);
 
   const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
     switch (outcome) {
