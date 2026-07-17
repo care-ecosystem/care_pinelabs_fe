@@ -12,11 +12,32 @@ import {
 } from "@/types/pinelabs_terminal";
 import { LocationRead } from "@/types/location";
 import { PaymentReconciliation } from "@/types/payment_reconciliation";
+import { User } from "@/types/user";
 
 import { PaginatedResponse } from "@/apis/types";
 import { request, queryString } from "@/apis/request";
 
 export const apis = {
+  users: {
+    list: async (
+      facilityId: string,
+      params: {
+        limit?: number;
+        offset?: number;
+        search_text?: string;
+      } = {},
+      signal?: AbortSignal,
+    ) => {
+      const cleanParams = Object.fromEntries(
+        Object.entries(params).filter(([, value]) => value !== undefined),
+      ) as Record<string, string | number>;
+
+      return await request<PaginatedResponse<User>>(
+        `/api/v1/facility/${facilityId}/users/${queryString(cleanParams)}`,
+        { signal },
+      );
+    },
+  },
   locations: {
     list: async (
       facilityId: string,
@@ -127,6 +148,7 @@ export const apis = {
         status?: string;
         method?: string;
         location?: string;
+        created_by?: string;
       },
     ) => {
       const cleanParams = Object.fromEntries(
