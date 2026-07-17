@@ -31,6 +31,9 @@ export const usePaymentReconciliations = (
   if (filters.location && filters.location.trim() !== "") {
     params.location = filters.location.trim();
   }
+  if (filters.createdBy && filters.createdBy.trim() !== "") {
+    params.created_by = filters.createdBy.trim();
+  }
 
   return useQuery({
     queryKey: ["payment_reconciliations", facilityId, params],

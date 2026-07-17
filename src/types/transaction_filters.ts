@@ -9,6 +9,7 @@ export type TransactionFilters = {
   status?: PaymentReconciliationStatus | "";
   method?: PaymentReconciliationPaymentMethod | "";
   location?: string;
+  createdBy?: string;
 };
 
 export type TransactionListParams = {
@@ -20,4 +21,5 @@ export type TransactionListParams = {
   status?: string;
   method?: string;
   location?: string;
+  created_by?: string;
 };

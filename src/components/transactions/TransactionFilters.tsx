@@ -1,8 +1,7 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -12,23 +11,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { DateRangeFilter } from "@/components/transactions/DateRangeFilter";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
   PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
 } from "@/types/payment_reconciliation";
-import { cn } from "@/lib/utils";
-import dayjs from "@/lib/dayjs";
-import { CalendarIcon, XIcon, Loader2Icon } from "lucide-react";
+import { XIcon, Loader2Icon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apis } from "@/apis";
 import { LocationTypeIcons } from "@/types/location";
+import { UserSelector } from "@/components/transactions/UserSelector";
+import { User } from "@/types/user";
 
 type TransactionFiltersProps = {
   facilityId: string;
@@ -42,6 +36,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   onFiltersChange,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
+  const [selectedUser, setSelectedUser] = useState<User | undefined>();
 
   const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
     queryKey: ["pinelabs_locations", facilityId],
@@ -56,6 +51,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
 
   const handleClearFilters = () => {
+    setSelectedUser(undefined);
     onFiltersChange({
       method: PaymentReconciliationPaymentMethod.ddpo, // Keep default method when clearing
     });
@@ -64,65 +60,19 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Date From */}
-          <div className="space-y-2">
-            <Label>{t("date_from")}</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !filters.dateFrom && "text-gray-500",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateFrom
-                    ? dayjs(filters.dateFrom).format("MMM D, YYYY")
-                    : t("select_date")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={filters.dateFrom}
-                  onSelect={(date) =>
-                    onFiltersChange({ ...filters, dateFrom: date })
-                  }
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4">
 
-          {/* Date To */}
-          <div className="space-y-2">
-            <Label>{t("date_to")}</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !filters.dateTo && "text-gray-500",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.dateTo
-                    ? dayjs(filters.dateTo).format("MMM D, YYYY")
-                    : t("select_date")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={filters.dateTo}
-                  onSelect={(date) =>
-                    onFiltersChange({ ...filters, dateTo: date })
-                  }
-                />
-              </PopoverContent>
-            </Popover>
+
+          {/* Date Range */}
+          <div className="space-y-2 lg:col-span-1 min-w-0">
+            <Label>{t("date")}</Label>
+            <DateRangeFilter
+              dateFrom={filters.dateFrom}
+              dateTo={filters.dateTo}
+              onChange={({ dateFrom, dateTo }) =>
+                onFiltersChange({ ...filters, dateFrom, dateTo })
+              }
+            />
           </div>
 
           {/* Status Filter */}
@@ -231,6 +181,18 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 )}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>{t("user")}</Label>
+            <UserSelector
+              facilityId={facilityId}
+              selectedUser={selectedUser}
+              onChange={(user) => {
+                setSelectedUser(user);
+                onFiltersChange({ ...filters, createdBy: user?.id || "" });
+              }}
+            />
           </div>
         </div>
 
