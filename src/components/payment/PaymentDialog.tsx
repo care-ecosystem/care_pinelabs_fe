@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   PaymentReconciliation,
@@ -114,6 +114,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   disabled,
   disabledReason,
 }) => {
+  console.error("🔵 [PaymentDialog] Component rendered");
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
@@ -312,15 +313,71 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   };
 
   const handleOpenChange = (open: boolean) => {
+    console.error("🟡 [PaymentDialog] handleOpenChange called:", {
+      open,
+      isTransactionInProgress,
+      uploadPending: uploadTransactionMutation.isPending,
+      shouldBlock: isTransactionInProgress || uploadTransactionMutation.isPending,
+    });
+
     // Lock the dialog open mid-transaction — dismissing would orphan a queued
     // PR. Users must wait for the outcome or explicitly Cancel.
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+      console.error("🛑 [PaymentDialog] BLOCKED - Transaction in progress");
       toast.warning(t("toast_wait_for_transaction"));
-      return;
+      return; // Don't call setIsOpen - keep dialog locked open
     }
+
+    console.error("✅ [PaymentDialog] ALLOWING - Setting isOpen to:", open);
     setIsOpen(open);
     if (!open) resetDialogState();
   };
+
+  // Additional safeguard: prevent dialog from closing during transaction
+  // This blocks ESC key, outside clicks, and close button during active transactions
+  const shouldBlockClose = isTransactionInProgress || uploadTransactionMutation.isPending;
+
+  // Log state changes for debugging
+  useEffect(() => {
+    console.error("[PaymentDialog] State changed:", {
+      isOpen,
+      prId,
+      showSuccess,
+      showFailure,
+      pollingTimedOut,
+      isTransactionInProgress,
+      uploadPending: uploadTransactionMutation.isPending,
+      shouldBlockClose,
+    });
+  }, [
+    isOpen,
+    prId,
+    showSuccess,
+    showFailure,
+    pollingTimedOut,
+    isTransactionInProgress,
+    uploadTransactionMutation.isPending,
+    shouldBlockClose,
+  ]);
+
+  // Track isOpen state changes specifically
+  useEffect(() => {
+    console.error("🔴 [PaymentDialog] isOpen changed to:", isOpen);
+  }, [isOpen]);
+
+  // Expose debug state to window for easy inspection
+  useEffect(() => {
+    (window as any).paymentDialogDebug = {
+      isOpen,
+      prId,
+      isTransactionInProgress,
+      uploadPending: uploadTransactionMutation.isPending,
+      shouldBlockClose,
+      showSuccess,
+      showFailure,
+      pollingTimedOut,
+    };
+  });
 
   const isDisabled = disabled || !isSelectedPaymentMethodSupported;
   const tooltipReason = disabled && disabledReason
@@ -379,19 +436,40 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       </DialogTrigger>
       <DialogContent
         className="sm:max-w-lg"
-        showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}
+        showCloseButton={!shouldBlockClose}
         onEscapeKeyDown={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+          console.error("⌨️ [PaymentDialog] ESC Key pressed:", {
+            shouldBlockClose,
+            isTransactionInProgress,
+            uploadPending: uploadTransactionMutation.isPending,
+          });
+          if (shouldBlockClose) {
+            console.error("🛑 [PaymentDialog] ESC Key BLOCKED - Preventing default");
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
-            return;
+            e.stopPropagation();
+            toast.warning(t("toast_wait_for_transaction"));
+          } else {
+            console.error("✅ [PaymentDialog] ESC Key ALLOWED - Dialog will close");
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          console.error("🖱️ [PaymentDialog] Pointer down outside:", {
+            shouldBlockClose,
+          });
+          if (shouldBlockClose) {
+            console.error("🛑 [PaymentDialog] Pointer BLOCKED");
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
           }
         }}
         onInteractOutside={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+          console.error("👆 [PaymentDialog] Interact outside:", {
+            shouldBlockClose,
+          });
+          if (shouldBlockClose) {
+            console.error("🛑 [PaymentDialog] Interact BLOCKED");
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
-            return;
+            toast.warning(t("toast_wait_for_transaction"));
           }
         }}
       >

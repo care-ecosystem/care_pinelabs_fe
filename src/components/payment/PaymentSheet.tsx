@@ -1,4 +1,4 @@
-import { CreditCard, Link2Icon, QrCode, Smartphone } from "lucide-react";
+import { CreditCard, Link2Icon, QrCode, Smartphone, ArrowUpLeft, Info } from "lucide-react";
 import { FC, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +44,8 @@ import {
 export type PaymentSheetProps = {
   facilityId: string;
   invoice: Invoice;
+  autoOpen?: boolean; // Auto-open the sheet (used on dedicated payment page)
+  onClose?: () => void; // Callback when sheet closes (used for navigation on dedicated page)
 };
 
 // PaymentReconciliationPaymentMethod has no distinct UPI/Bharat QR values, so
@@ -73,11 +75,13 @@ const PAYMENT_METHODS = [
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
+  autoOpen = false,
+  onClose,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(autoOpen);
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value,
   );
@@ -90,6 +94,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     null,
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
+  const [showManualHint, setShowManualHint] = useState(false);
 
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
@@ -222,6 +227,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleCloseAfterTerminal = () => {
     setIsOpen(false);
     resetSheetState();
+    onClose?.(); // Navigate back if on dedicated page
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -232,7 +238,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return;
     }
     setIsOpen(open);
-    if (!open) resetSheetState();
+    if (!open) {
+      resetSheetState();
+      onClose?.(); // Navigate back if on dedicated page
+    }
   };
 
   const isFormStep =
@@ -282,6 +291,26 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             })}
           </SheetDescription>
         </SheetHeader>
+
+        {/* Manual Entry Toggle - Only show in form step */}
+        {isFormStep && (
+          <div className="space-y-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setShowManualHint(!showManualHint)}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <ArrowUpLeft className="h-4 w-4" />
+              {t("switch_to_manual_entry")}
+            </button>
+
+            {showManualHint && (
+              <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 leading-relaxed">
+                {t("manual_entry_hint")}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-6 py-4">
           {!isFormStep ? (
@@ -337,6 +366,17 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                     backgroundPosition: "center",
                   }}
                 />
+              </div>
+
+              {/* Dynamic Warning with Amount and Payment Method */}
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
+                <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  {t("payment_warning_message", {
+                    amount: formatCurrency(amount),
+                    paymentMethod: currentPaymentMethodLabel,
+                  })}
+                </p>
               </div>
 
               <div className="space-y-2">

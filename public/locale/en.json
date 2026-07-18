@@ -2,6 +2,9 @@
   "collect_via_pinelabs_terminal": "Collect via Pinelabs Terminal",
   "receive_payment_via_pinelabs_terminal": "Receive Payment via Pinelabs Terminal",
   "recording_payment_for_invoice": "Recording payment for invoice {{invoiceNumber}}",
+  "switch_to_manual_entry": "Switch to manual entry",
+  "manual_entry_hint": "This exits the Pinelabs flow and lets you record the payment yourself (cash, cheque, bank transfer) without the POS terminal.",
+  "payment_warning_message": "{{amount}} will be collected via the Pinelabs POS terminal using {{paymentMethod}}. Confirm the terminal and location before sending the request.",
 
   "payment_method": "Payment Method",
   "amount": "Amount",
@@ -79,6 +82,11 @@
 
   "pinelabs_transactions": "Pinelabs Transactions",
   "pinelabs_transactions_description": "View and manage all Pinelabs payment transactions",
+  "pinelabs_payment": "Pinelabs Payment",
+  "invoice": "Invoice",
+  "back": "Back",
+  "back_to_invoice": "Back to Invoice",
+  "error_loading_invoice": "Failed to load invoice. Please try again.",
   "date": "Date",
   "date_time": "Date & Time",
   "select_date_range": "Select date range",

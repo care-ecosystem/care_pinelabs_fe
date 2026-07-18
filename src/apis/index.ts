@@ -13,11 +13,19 @@ import {
 import { LocationRead } from "@/types/location";
 import { PaymentReconciliation } from "@/types/payment_reconciliation";
 import { User } from "@/types/user";
+import { Invoice } from "@/types/invoice";
 
 import { PaginatedResponse } from "@/apis/types";
 import { request, queryString } from "@/apis/request";
 
 export const apis = {
+  invoices: {
+    retrieve: async (facilityId: string, invoiceId: string) => {
+      return await request<Invoice>(
+        `/api/v1/facility/${facilityId}/invoice/${invoiceId}/`,
+      );
+    },
+  },
   users: {
     list: async (
       facilityId: string,
