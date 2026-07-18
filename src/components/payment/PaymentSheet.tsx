@@ -1,6 +1,7 @@
 import { CreditCard, Link2Icon, QrCode, Smartphone, ArrowUpLeft, Info } from "lucide-react";
 import { FC, useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { navigate } from "raviger";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     null,
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
-  const [showManualHint, setShowManualHint] = useState(false);
 
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
@@ -294,21 +294,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 
         {/* Manual Entry Toggle - Only show in form step */}
         {isFormStep && (
-          <div className="space-y-3 pt-4">
+          <div className="pt-4">
             <button
               type="button"
-              onClick={() => setShowManualHint(!showManualHint)}
+              onClick={() => {
+                // Navigate to native care_fe payment page for manual entry
+                navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}/pay`);
+              }}
               className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
             >
               <ArrowUpLeft className="h-4 w-4" />
               {t("switch_to_manual_entry")}
             </button>
-
-            {showManualHint && (
-              <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-xs text-gray-600 leading-relaxed">
-                {t("manual_entry_hint")}
-              </div>
-            )}
           </div>
         )}
 
