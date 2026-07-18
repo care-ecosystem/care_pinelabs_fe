@@ -46,7 +46,6 @@ export type PaymentSheetProps = {
   facilityId: string;
   invoice: Invoice;
   autoOpen?: boolean; // Auto-open the sheet (used on dedicated payment page)
-  onClose?: () => void; // Callback when sheet closes (used for navigation on dedicated page)
 };
 
 // PaymentReconciliationPaymentMethod has no distinct UPI/Bharat QR values, so
@@ -77,7 +76,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
   autoOpen = false,
-  onClose,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
@@ -204,6 +202,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       toast.success(t("toast_transaction_cancelled"));
       setIsOpen(false);
       resetSheetState();
+      // Navigate to invoice page after cancelling transaction
+      navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
     },
     onError: (error: unknown) => {
       console.error("Cancel Transaction: ", error);
@@ -227,7 +227,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleCloseAfterTerminal = () => {
     setIsOpen(false);
     resetSheetState();
-    onClose?.(); // Navigate back if on dedicated page
+    // Navigate to invoice page after transaction completes
+    navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -240,7 +241,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     setIsOpen(open);
     if (!open) {
       resetSheetState();
-      onClose?.(); // Navigate back if on dedicated page
+      // Navigate to invoice page when closing (e.g., ESC key or X button)
+      navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
     }
   };
 
@@ -453,7 +455,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleOpenChange(false)}
+                onClick={() => {
+                  // Navigate to invoice page when cancelling
+                  navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
+                }}
               >
                 {t("cancel")}
               </Button>

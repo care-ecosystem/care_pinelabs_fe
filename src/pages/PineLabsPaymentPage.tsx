@@ -95,12 +95,11 @@ const PineLabsPaymentPage: FC<PineLabsPaymentPageProps> = ({
           </div>
         </div>
 
-        {/* Payment Sheet Component - auto-opens and navigates back on close */}
+        {/* Payment Sheet Component - auto-opens and navigates to invoice on all close actions */}
         <PaymentSheet
           facilityId={facilityId}
           invoice={invoice}
           autoOpen={true}
-          onClose={handleBackToInvoice}
         />
       </div>
     </div>
