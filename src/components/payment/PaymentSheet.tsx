@@ -1,5 +1,5 @@
 import { CreditCard, Link2Icon, QrCode, Smartphone, ArrowUpLeft, Info } from "lucide-react";
-import { FC, useCallback, useRef, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { navigate } from "raviger";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ShortcutBadge } from "@/components/common/ShortcutBadge";
+import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import {
   Sheet,
   SheetContent,
@@ -255,6 +257,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   // Get the payment method label using the unique value
   const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
 
+  // Keyboard shortcuts using custom hook (following care_fe pattern)
+  // Shift+Enter: Send payment request
+  useButtonShortcut({
+    key: "Enter",
+    shiftKey: true,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !uploadTransactionMutation.isPending,
+    onTrigger: handleCollectPayment,
+  });
+
+  // ESC: Cancel/Navigate back to invoice
+  useButtonShortcut({
+    key: "Escape",
+    enabled: isOpen && isFormStep,
+    onTrigger: () => navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`),
+  });
+
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
@@ -459,17 +477,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   // Navigate to invoice page when cancelling
                   navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
                 }}
+                className="gap-2"
+                aria-keyshortcuts="Escape"
               >
                 {t("cancel")}
+                <ShortcutBadge shortcut="ESC" />
               </Button>
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
                 disabled={!selectedTerminal}
                 loading={uploadTransactionMutation.isPending}
-                className="flex-1"
+                className="flex-1 gap-2"
+                aria-keyshortcuts="Shift+Enter"
               >
                 {t("send_payment_request")}
+                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
               </Button>
             </div>
           )}
