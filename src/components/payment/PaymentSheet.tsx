@@ -1,11 +1,14 @@
-import { CreditCard, Link2Icon, QrCode, Smartphone } from "lucide-react";
-import { FC, useCallback, useRef, useState } from "react";
+import { CreditCard, Link2Icon, QrCode, Smartphone, ArrowUpLeft, Info } from "lucide-react";
+import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { navigate } from "raviger";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ShortcutBadge } from "@/components/common/ShortcutBadge";
+import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import {
   Sheet,
   SheetContent,
@@ -44,6 +47,7 @@ import {
 export type PaymentSheetProps = {
   facilityId: string;
   invoice: Invoice;
+  autoOpen?: boolean; // Auto-open the sheet (used on dedicated payment page)
 };
 
 // PaymentReconciliationPaymentMethod has no distinct UPI/Bharat QR values, so
@@ -73,11 +77,12 @@ const PAYMENT_METHODS = [
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
+  autoOpen = false,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(autoOpen);
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value,
   );
@@ -183,7 +188,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       toast.success(t("toast_collect_payment_on_terminal"));
     },
     onError: (error: unknown) => {
-      console.error("Upload Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(
           error,
@@ -199,9 +203,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       toast.success(t("toast_transaction_cancelled"));
       setIsOpen(false);
       resetSheetState();
+      // Navigate to invoice page after cancelling transaction
+      navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
     },
     onError: (error: unknown) => {
-      console.error("Cancel Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(error, t("error_failed_to_cancel_transaction")),
       );
@@ -222,6 +227,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleCloseAfterTerminal = () => {
     setIsOpen(false);
     resetSheetState();
+    // Navigate to invoice page after transaction completes
+    navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -232,7 +239,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return;
     }
     setIsOpen(open);
-    if (!open) resetSheetState();
+    if (!open) {
+      resetSheetState();
+      // Navigate to invoice page when closing (e.g., ESC key or X button)
+      navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
+    }
   };
 
   const isFormStep =
@@ -243,6 +254,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 
   // Get the payment method label using the unique value
   const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
+
+  // Keyboard shortcuts using custom hook (following care_fe pattern)
+  // Shift+Enter: Send payment request
+  useButtonShortcut({
+    key: "Enter",
+    shiftKey: true,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !uploadTransactionMutation.isPending,
+    onTrigger: handleCollectPayment,
+  });
+
+  // ESC: Cancel/Navigate back to invoice
+  useButtonShortcut({
+    key: "Escape",
+    enabled: isOpen && isFormStep,
+    onTrigger: () => navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`),
+  });
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -282,6 +309,23 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             })}
           </SheetDescription>
         </SheetHeader>
+
+        {/* Manual Entry Toggle - Only show in form step */}
+        {isFormStep && (
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                // Navigate to native care_fe payment page for manual entry
+                navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}/pay`);
+              }}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <ArrowUpLeft className="h-4 w-4" />
+              {t("switch_to_manual_entry")}
+            </button>
+          </div>
+        )}
 
         <div className="space-y-6 py-4">
           {!isFormStep ? (
@@ -337,6 +381,17 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                     backgroundPosition: "center",
                   }}
                 />
+              </div>
+
+              {/* Dynamic Warning with Amount and Payment Method */}
+              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
+                <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  {t("payment_warning_message", {
+                    amount: formatCurrency(amount),
+                    paymentMethod: currentPaymentMethodLabel,
+                  })}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -416,18 +471,26 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleOpenChange(false)}
+                onClick={() => {
+                  // Navigate to invoice page when cancelling
+                  navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
+                }}
+                className="gap-2"
+                aria-keyshortcuts="Escape"
               >
                 {t("cancel")}
+                <ShortcutBadge shortcut="ESC" />
               </Button>
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
                 disabled={!selectedTerminal}
                 loading={uploadTransactionMutation.isPending}
-                className="flex-1"
+                className="flex-1 gap-2"
+                aria-keyshortcuts="Shift+Enter"
               >
                 {t("send_payment_request")}
+                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
               </Button>
             </div>
           )}

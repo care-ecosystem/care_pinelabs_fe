@@ -273,7 +273,6 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       toast.success("Collect the payment on the POS terminal");
     },
     onError: (error: unknown) => {
-      console.error("Upload Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(error, "Failed to initiate the transaction"),
       );
@@ -288,7 +287,6 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       resetDialogState();
     },
     onError: (error: unknown) => {
-      console.error("Cancel Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(error, "Failed to cancel the transaction"),
       );
@@ -316,11 +314,16 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
     // PR. Users must wait for the outcome or explicitly Cancel.
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
       toast.warning(t("toast_wait_for_transaction"));
-      return;
+      return; // Don't call setIsOpen - keep dialog locked open
     }
+
     setIsOpen(open);
     if (!open) resetDialogState();
   };
+
+  // Additional safeguard: prevent dialog from closing during transaction
+  // This blocks ESC key, outside clicks, and close button during active transactions
+  const shouldBlockClose = isTransactionInProgress || uploadTransactionMutation.isPending;
 
   const isDisabled = disabled || !isSelectedPaymentMethodSupported;
   const tooltipReason = disabled && disabledReason
@@ -379,19 +382,24 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       </DialogTrigger>
       <DialogContent
         className="sm:max-w-lg"
-        showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}
+        showCloseButton={!shouldBlockClose}
         onEscapeKeyDown={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+          if (shouldBlockClose) {
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
-            return;
+            e.stopPropagation();
+            toast.warning(t("toast_wait_for_transaction"));
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          if (shouldBlockClose) {
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
           }
         }}
         onInteractOutside={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+          if (shouldBlockClose) {
             e.preventDefault();
-            toast.warning("Please wait for the transaction to complete or cancel it.");
-            return;
+            toast.warning(t("toast_wait_for_transaction"));
           }
         }}
       >
