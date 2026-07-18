@@ -89,7 +89,6 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
       }
     },
     onError: (error: unknown) => {
-      console.error("Refresh Transaction Status: ", error);
       toast.error(
         getPinelabsErrorMessage(error, t("error_failed_to_refresh_status")),
       );

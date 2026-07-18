@@ -128,7 +128,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       form.reset();
     },
     onError: (error: unknown) => {
-      console.error("Create Terminal: ", error);
       toast.error("Failed to create terminal");
     },
   });
@@ -151,7 +150,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       form.reset();
     },
     onError: (error: unknown) => {
-      console.error("Update Terminal: ", error);
       toast.error("Failed to update terminal");
     },
   });
@@ -167,7 +165,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       setDeletingTerminal(null);
     },
     onError: (error: unknown) => {
-      console.error("Delete Terminal: ", error);
       toast.error("Failed to delete terminal");
     },
   });

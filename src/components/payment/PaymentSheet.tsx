@@ -188,7 +188,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       toast.success(t("toast_collect_payment_on_terminal"));
     },
     onError: (error: unknown) => {
-      console.error("Upload Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(
           error,
@@ -208,7 +207,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       navigate(`/facility/${facilityId}/billing/invoices/${invoice.id}`);
     },
     onError: (error: unknown) => {
-      console.error("Cancel Transaction: ", error);
       toast.error(
         getPinelabsErrorMessage(error, t("error_failed_to_cancel_transaction")),
       );
