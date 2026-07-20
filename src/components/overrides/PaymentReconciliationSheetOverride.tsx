@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * Override for PaymentReconciliationSheet
- * Shows the Pine Labs payment form directly when Record Payment is clicked
- * Only opens when the sheet is triggered (when open=true)
+ * Shows Pine Labs payment form directly when Record Payment is clicked
  */
 const PaymentReconciliationSheetOverride = (props: any) => {
   const { open, onOpenChange, facilityId, invoice } = props;
@@ -25,7 +24,6 @@ const PaymentReconciliationSheetOverride = (props: any) => {
 
   const currentInvoice = invoice || fetchedInvoice;
 
-  // Don't render anything if sheet is not open
   if (!open) {
     return null;
   }
@@ -47,13 +45,11 @@ const PaymentReconciliationSheetOverride = (props: any) => {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <Card className="w-96">
-          <CardContent className="py-12">
-            <div className="text-center space-y-4">
-              <p className="text-red-600">{t("error_loading_invoice")}</p>
-              <Button onClick={() => onOpenChange(false)} variant="outline">
-                {t("back_to_invoice")}
-              </Button>
-            </div>
+          <CardContent className="py-12 text-center space-y-4">
+            <p className="text-red-600">{t("error_loading_invoice")}</p>
+            <Button onClick={() => onOpenChange(false)} variant="outline">
+              {t("back_to_invoice")}
+            </Button>
           </CardContent>
         </Card>
       </div>
