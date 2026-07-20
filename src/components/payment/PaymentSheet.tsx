@@ -311,7 +311,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         </SheetHeader>
 
         {/* Manual Entry Toggle - Only show in form step */}
-        {isFormStep && (
+        {/* {isFormStep && (
           <div className="pt-4">
             <button
               type="button"
@@ -325,7 +325,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               {t("switch_to_manual_entry")}
             </button>
           </div>
-        )}
+        )} */}
 
         <div className="space-y-6 py-4">
           {!isFormStep ? (
