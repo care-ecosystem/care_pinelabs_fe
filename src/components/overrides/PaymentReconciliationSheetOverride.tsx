@@ -8,13 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEffect } from "react";
 
-/**
- * Override for PaymentReconciliationSheet
- * Routes both invoice and account-level payments to Pine Labs PaymentSheet
- * 
- * CRITICAL FIX: Passes account ID (STRING), NOT account object
- * This prevents the URL from staying at /pay after closing
- */
+
 const PaymentReconciliationSheetOverride = (props: any) => {
   const { 
     open, 
@@ -27,7 +21,6 @@ const PaymentReconciliationSheetOverride = (props: any) => {
   } = props;
   const { t } = useTranslation(I18NNAMESPACE);
 
-  // Debug logging
   useEffect(() => {
     console.log("[PaymentReconciliationSheetOverride] Props received:", {
       open,
@@ -174,7 +167,7 @@ const PaymentReconciliationSheetOverride = (props: any) => {
     return (
       <PaymentSheet
         facilityId={facilityId}
-        account={resolvedAccountId}              // ✅ CRITICAL: Pass account ID (string), NOT object
+        account={resolvedAccountId}              
         autoOpen={true}
         isCreditNote={isCreditNote}
         onClose={() => onOpenChange(false)}

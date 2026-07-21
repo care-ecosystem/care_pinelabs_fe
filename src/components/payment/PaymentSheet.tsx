@@ -51,11 +51,11 @@ import { useButtonShortcut } from "@/hooks/useButtonShortcut";
  */
 export type PaymentSheetProps = {
   facilityId: string;
-  invoice?: Invoice;              // Now optional
-  account?: Account;              // NEW: For account payments
+  invoice?: Invoice;              
+  account?: Account | string;              
   autoOpen?: boolean;
-  isCreditNote?: boolean;         // NEW: For credit notes
-  onClose?: () => void;           // NEW: Close callback
+  isCreditNote?: boolean;         
+  onClose?: () => void;          
 };
 
 const PAYMENT_METHODS = [
@@ -82,14 +82,12 @@ const PAYMENT_METHODS = [
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
-  account,                         // NEW
+  account,                         
   autoOpen = false,
-  isCreditNote = false,            // NEW
-  onClose,                         // NEW
+  isCreditNote = false,            
+  onClose,                        
 }) => {
-  // ========================================
-  // NEW: Route account payments to separate component
-  // ========================================
+
   if (account) {
     return (
       <PineLabsAccountPayment
@@ -102,14 +100,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     );
   }
 
-  // If no invoice provided, return null
   if (!invoice) {
     console.warn("[PaymentSheet] No invoice or account provided");
     return null;
   }
-  // ========================================
-
-  // CONTINUE WITH EXISTING INVOICE PAYMENT LOGIC
+  
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
@@ -362,7 +357,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   </p>
                 </div>
 
-                {/* ✅ NEW: Decorative divider */}
                 <div
                   className="h-4 w-full bg-repeat-x -mt-4"
                   style={{

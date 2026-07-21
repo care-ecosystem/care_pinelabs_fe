@@ -81,20 +81,6 @@ const PAYMENT_METHODS = [
   },
 ] as const;
 
-/**
- * PineLabsAccountPayment Component
- *
- * Handles Pine Labs payment processing for account-level payments.
- * This is used when users click "Advance/Receipt" to pay against an account balance.
- * UI mirrors the invoice payment sheet for consistency.
- *
- * Flow:
- * 1. User selects terminal and location
- * 2. Initiates payment through Pine Labs gateway
- * 3. Polls for payment status
- * 4. Shows success/failure/timeout states
- * 5. Creates payment reconciliation record
- */
 export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   facilityId,
   account: accountProp,
@@ -122,10 +108,9 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       console.log("[PineLabsAccountPayment] Fetching account:", accountId);
       return apis.accounts.retrieve(facilityId, accountId!);
     },
-    enabled: isAccountString && !!accountId,  // Only fetch if it's a string ID
+    enabled: isAccountString && !!accountId,  
   });
 
-  // ✅ Use fetched account or passed object
   const account = isAccountString ? fetchedAccount : (accountProp as Account);
 
   // State management
@@ -143,11 +128,8 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  // Calculate amount due from account balance (absolute value)
-  // ✅ FIXED: Now safely accesses account object properties
   const amountDue = account ? Math.abs(parseFloat(account.total_balance || "0")) : 0;
 
-  // Debug logging
   useEffect(() => {
     console.log("[PineLabsAccountPayment] State:", {
       accountId,
@@ -273,12 +255,10 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
         return null;
     }
 
-    // ✅ FIXED: Account payments ALWAYS use "advance"
-    // Whether it's a regular payment or credit note, account payments are "advance"
     return {
         terminal: selectedTerminal,
         payment_mode: selectedMethodObj.mode,
-        reconciliation_type: PaymentReconciliationType.advance,  // ✅ ALWAYS "advance"
+        reconciliation_type: PaymentReconciliationType.advance,  
         kind: PaymentReconciliationKind.online,
         issuer_type: PaymentReconciliationIssuerType.patient,
         method: selectedMethodObj.method,
