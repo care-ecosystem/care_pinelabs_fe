@@ -421,10 +421,10 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       >
         <SheetHeader>
           <SheetTitle className="m-0">
-            {isCreditNote ? t("record_credit_note") : t("record_payment")}
+            {isCreditNote ? t("record_credit_note") : t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("recording_payment_for_account", {
+            {t("recording_payment_for_invoice", {
               accountName: account.name,
             })}
           </SheetDescription>
