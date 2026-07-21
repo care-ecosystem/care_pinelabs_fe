@@ -45,18 +45,15 @@ import { Account } from "@/types/account";
 import { Loader2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-/**
- * Props for PineLabsAccountPayment component
- * ✅ FIXED: account can now be Account object OR account ID string
- */
+
 export type PineLabsAccountPaymentProps = {
   facilityId: string;
-  account: Account | string;  // ✅ Accept both object and string
+  account: Account | string;  
   autoOpen?: boolean;
   isCreditNote?: boolean;
   onClose?: () => void;
   onSuccess?: () => void;
-  showTrigger?: boolean;  // Whether to show the SheetTrigger button
+  showTrigger?: boolean; 
 };
 
 // Payment methods available for account payments
@@ -404,9 +401,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
             {isCreditNote ? t("record_credit_note") : t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("recording_payment_for_invoice", {
-              accountName: account.name,
-            })}
+            {t("recording_payment_for_account")}
           </SheetDescription>
         </SheetHeader>
 
@@ -439,7 +434,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Account Summary - Mirrored from invoice payment sheet */}
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
                 <div className="flex text-sm justify-center text-gray-700">
                   {t("account")}:
@@ -573,7 +567,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                 onClick={handleCollectPayment}
                 disabled={!selectedTerminal}
                 loading={uploadTransactionMutation.isPending}
-                className="flex-1 gap-2"
                 aria-keyshortcuts="Shift+Enter"
               >
                 {t("send_payment_request")}

@@ -51,11 +51,11 @@ import { useButtonShortcut } from "@/hooks/useButtonShortcut";
  */
 export type PaymentSheetProps = {
   facilityId: string;
-  invoice?: Invoice;              
-  account?: Account | string;              
+  invoice?: Invoice;
+  account?: Account | string;
   autoOpen?: boolean;
-  isCreditNote?: boolean;         
-  onClose?: () => void;          
+  isCreditNote?: boolean;
+  onClose?: () => void;
 };
 
 const PAYMENT_METHODS = [
@@ -82,10 +82,10 @@ const PAYMENT_METHODS = [
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
-  account,                         
+  account,
   autoOpen = false,
-  isCreditNote = false,            
-  onClose,                        
+  isCreditNote = false,
+  onClose,
 }) => {
 
   if (account) {
@@ -104,7 +104,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     console.warn("[PaymentSheet] No invoice or account provided");
     return null;
   }
-  
+
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
@@ -308,7 +308,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             {t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("invoice")}: {invoice.number}
+            {t("recording_payment_for_invoice", {
+              invoiceNumber: invoice.number
+            })}
+
           </SheetDescription>
         </SheetHeader>
 
@@ -341,11 +344,10 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Invoice Summary */}
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
                 <div className="flex text-sm justify-center text-gray-700">
-                  {t("invoice")}
-                  <p className="font-bold ml-1">{invoice.number}</p>
+                  {t("invoice_total")}
+                  <p className="font-bold ml-1">{formatCurrency(invoice.total_gross)}</p>
                 </div>
 
                 <div className="bg-white p-3 text-center">
@@ -377,12 +379,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               </div>
 
               {/* Payment Method */}
-              <div className="space-y-3">
-                <Label>{t("payment_method")}</Label>
+              <div className="space-y-2">
+                <Label className="text-gray-950">{t("payment_method")}</Label>
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
-                  className="grid grid-cols-3 gap-3"  // ✅ 3-column grid
+                  className="grid grid-cols-3 gap-3"  
                 >
                   {PAYMENT_METHODS.map((method) => {
                     const Icon = method.icon;
@@ -464,17 +466,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   onClose?.();
                 }}
               >
-                <ShortcutBadge shortcut="ESC" />
                 {t("cancel")}
+                <ShortcutBadge shortcut="ESC" />
               </Button>
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
                 disabled={!selectedTerminal}
                 loading={uploadTransactionMutation.isPending}
+                aria-keyshortcuts="Shift+Enter"
               >
-                <ShortcutBadge shortcut="Shift+Enter" />
                 {t("send_payment_request")}
+                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
               </Button>
             </div>
           )}

@@ -43,7 +43,7 @@ const PaymentReconciliationSheetOverride = (props: any) => {
       console.log("[PaymentReconciliationSheetOverride] Fetching invoice:", invoice?.id);
       return apis.invoices.retrieve(facilityId, invoice?.id);
     },
-    enabled: !!invoice?.id && open && !invoice,
+    enabled: !!invoice?.id && open,
   });
 
   // Fetch account if only ID is provided
