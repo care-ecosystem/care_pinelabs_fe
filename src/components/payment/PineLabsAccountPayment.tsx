@@ -1,11 +1,13 @@
-import { CreditCard, QrCode, Smartphone } from "lucide-react";
-import { FC, useCallback, useState } from "react";
+import { CreditCard, Link2Icon, QrCode, Smartphone, Info } from "lucide-react";
+import { FC, useCallback, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ShortcutBadge } from "@/components/common/ShortcutBadge";
+import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import {
   Sheet,
   SheetContent,
@@ -13,8 +15,8 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
-import { Info } from "lucide-react";
 
 import { apis } from "@/apis";
 import { I18NNAMESPACE } from "@/lib/constants";
@@ -30,8 +32,6 @@ import {
   TimedOutView,
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
-import { Invoice } from "@/types/invoice";
-import { Account } from "@/types/account";
 import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
@@ -41,23 +41,25 @@ import {
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
-import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
-import { ShortcutBadge } from "@/components/common/ShortcutBadge";
-import { useButtonShortcut } from "@/hooks/useButtonShortcut";
-
+import { Account } from "@/types/account";
+import { Loader2Icon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * UPDATED: PaymentSheet now accepts either invoice OR account
+ * Props for PineLabsAccountPayment component
+ * ✅ FIXED: account can now be Account object OR account ID string
  */
-export type PaymentSheetProps = {
+export type PineLabsAccountPaymentProps = {
   facilityId: string;
-  invoice?: Invoice;              // Now optional
-  account?: Account;              // NEW: For account payments
+  account: Account | string;  // ✅ Accept both object and string
   autoOpen?: boolean;
-  isCreditNote?: boolean;         // NEW: For credit notes
-  onClose?: () => void;           // NEW: Close callback
+  isCreditNote?: boolean;
+  onClose?: () => void;
+  onSuccess?: () => void;
+  showTrigger?: boolean;  // Whether to show the SheetTrigger button
 };
 
+// Payment methods available for account payments
 const PAYMENT_METHODS = [
   {
     value: "bharat_qr",
@@ -79,40 +81,54 @@ const PAYMENT_METHODS = [
   },
 ] as const;
 
-export const PaymentSheet: FC<PaymentSheetProps> = ({
+/**
+ * PineLabsAccountPayment Component
+ *
+ * Handles Pine Labs payment processing for account-level payments.
+ * This is used when users click "Advance/Receipt" to pay against an account balance.
+ * UI mirrors the invoice payment sheet for consistency.
+ *
+ * Flow:
+ * 1. User selects terminal and location
+ * 2. Initiates payment through Pine Labs gateway
+ * 3. Polls for payment status
+ * 4. Shows success/failure/timeout states
+ * 5. Creates payment reconciliation record
+ */
+export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   facilityId,
-  invoice,
-  account,                         // NEW
+  account: accountProp,
   autoOpen = false,
-  isCreditNote = false,            // NEW
-  onClose,                         // NEW
+  isCreditNote = false,
+  onClose,
+  onSuccess,
+  showTrigger = true,
 }) => {
-  // ========================================
-  // NEW: Route account payments to separate component
-  // ========================================
-  if (account) {
-    return (
-      <PineLabsAccountPayment
-        facilityId={facilityId}
-        account={account}
-        autoOpen={autoOpen}
-        isCreditNote={isCreditNote}
-        onClose={onClose}
-      />
-    );
-  }
-
-  // If no invoice provided, return null
-  if (!invoice) {
-    console.warn("[PaymentSheet] No invoice or account provided");
-    return null;
-  }
-  // ========================================
-
-  // CONTINUE WITH EXISTING INVOICE PAYMENT LOGIC
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
+  // ✅ NEW: Determine account ID and whether we need to fetch
+  const isAccountString = typeof accountProp === "string";
+  const accountId = isAccountString ? accountProp : accountProp?.id;
+
+  // ✅ NEW: Fetch account if only ID was provided
+  const {
+    data: fetchedAccount,
+    isLoading: accountLoading,
+    error: accountError,
+  } = useQuery({
+    queryKey: ["account", accountId],
+    queryFn: () => {
+      console.log("[PineLabsAccountPayment] Fetching account:", accountId);
+      return apis.accounts.retrieve(facilityId, accountId!);
+    },
+    enabled: isAccountString && !!accountId,  // Only fetch if it's a string ID
+  });
+
+  // ✅ Use fetched account or passed object
+  const account = isAccountString ? fetchedAccount : (accountProp as Account);
+
+  // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
@@ -127,8 +143,61 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amount =
-    Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
+  // Calculate amount due from account balance (absolute value)
+  // ✅ FIXED: Now safely accesses account object properties
+  const amountDue = account ? Math.abs(parseFloat(account.total_balance || "0")) : 0;
+
+  // Debug logging
+  useEffect(() => {
+    console.log("[PineLabsAccountPayment] State:", {
+      accountId,
+      isAccountString,
+      accountLoading,
+      hasAccount: !!account,
+      amountDue,
+      accountName: account?.name,
+    });
+  }, [account, accountLoading, amountDue, isAccountString, accountId]);
+
+  // Show loading state while fetching account
+  if (!isAccountString && accountLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2Icon className="h-6 w-6 animate-spin" />
+            <span>{t("loading")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if account fetch failed
+  if (accountError || (!isAccountString && !account)) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-96">
+          <CardContent className="py-12 text-center space-y-4">
+            <p className="text-red-600">
+              {t("error_loading_account")}
+            </p>
+            {accountError && (
+              <p className="text-sm text-gray-500">{String(accountError)}</p>
+            )}
+            <Button onClick={() => onClose?.()} variant="outline">
+              {t("back")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Return null if account still not available
+  if (!account) {
+    return null;
+  }
 
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
@@ -141,14 +210,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         toast.warning(t("toast_payment_partially_completed"));
       }
 
+      // Invalidate queries to refresh account data
       queryClient.invalidateQueries({
-        queryKey: ["invoice", invoice.id],
+        queryKey: ["account", account.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["payments", account.id],
       });
       queryClient.invalidateQueries({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [invoice.id, queryClient, t]
+    [account.id, queryClient, t]
   );
 
   const handleTimeout = useCallback(() => {
@@ -156,6 +229,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     toast.warning(t("toast_transaction_timed_out"));
   }, [t]);
 
+  // Poll for payment status
   const { pr: polledPr, isPolling } = usePaymentReconciliationStatus(prId, {
     enabled: !!prId && !settledPr,
     onSettled: handleSettled,
@@ -178,44 +252,48 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     setPollingTimedOut(false);
   }, []);
 
+  // Build payment payload for Pine Labs
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
     if (!selectedTerminal) {
-      toast.error(t("error_please_select_terminal"));
-      return null;
+        toast.error(t("error_please_select_terminal"));
+        return null;
     }
 
-    if (!(amount > 0)) {
-      toast.error(t("error_tendered_amount_must_be_positive"));
-      return null;
+    if (!(amountDue > 0)) {
+        toast.error(t("error_tendered_amount_must_be_positive"));
+        return null;
     }
 
     const selectedMethodObj = PAYMENT_METHODS.find(
-      (m) => m.value === paymentMethod
+        (method) => method.value === paymentMethod
     );
 
     if (!selectedMethodObj) {
-      toast.error(t("error_invalid_payment_method"));
-      return null;
+        toast.error(t("error_invalid_payment_method"));
+        return null;
     }
 
+    // ✅ FIXED: Account payments ALWAYS use "advance"
+    // Whether it's a regular payment or credit note, account payments are "advance"
     return {
-      terminal: selectedTerminal,
-      payment_mode: selectedMethodObj.mode,
-      reconciliation_type: PaymentReconciliationType.payment,
-      kind: PaymentReconciliationKind.online,
-      issuer_type: PaymentReconciliationIssuerType.patient,
-      method: selectedMethodObj.method,
-      tendered_amount: amount.toFixed(2),
-      returned_amount: "0",
-      is_credit_note: false,
-      account: invoice.account.id,
-      target_invoice: invoice.id,
-      location: selectedLocation?.id ?? null,
-      disposition: null,
-      note: null,
+        terminal: selectedTerminal,
+        payment_mode: selectedMethodObj.mode,
+        reconciliation_type: PaymentReconciliationType.advance,  // ✅ ALWAYS "advance"
+        kind: PaymentReconciliationKind.online,
+        issuer_type: PaymentReconciliationIssuerType.patient,
+        method: selectedMethodObj.method,
+        tendered_amount: amountDue.toFixed(2),
+        returned_amount: "0",
+        is_credit_note: isCreditNote,
+        account: account.id,
+        target_invoice: undefined,  // Account payment has no invoice
+        location: selectedLocation?.id ?? null,
+        disposition: null,
+        note: null,
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, t]);
+    }, [amountDue, account.id, selectedLocation, selectedTerminal, paymentMethod, t]);
 
+  // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
     onSuccess: (data) => {
@@ -234,6 +312,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     },
   });
 
+  // Cancel transaction
   const cancelTransactionMutation = useMutation({
     mutationFn: apis.gateway.cancel_transaction,
     onSuccess: () => {
@@ -263,10 +342,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleCloseAfterTerminal = () => {
     setIsOpen(false);
     resetSheetState();
-    onClose?.();
+    onSuccess?.();
   };
 
   const handleOpenChange = (open: boolean) => {
+    // Prevent closing during transaction
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
       toast.warning(t("toast_wait_for_transaction"));
       return;
@@ -278,14 +358,17 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     }
   };
 
-
-  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
-
   const isFormStep =
     !showSuccess &&
     !showFailure &&
     !pollingTimedOut &&
     !isTransactionInProgress;
+
+  // Get the payment method label using the unique value
+  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
+
+  // Keyboard shortcuts using custom hook (following care_fe pattern)
+  // Shift+Enter: Send payment request
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
@@ -304,16 +387,46 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     },
   });
 
-
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0" showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}>
+      {showTrigger && (
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="sm" className="w-full justify-start">
+            <Link2Icon className="h-4 w-4" />
+            {isCreditNote
+              ? t("record_credit_note_via_pinelabs")
+              : t("receive_payment_via_pinelabs_terminal")}
+          </Button>
+        </SheetTrigger>
+      )}
+      <SheetContent
+        className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
+        showCloseButton={
+          !isTransactionInProgress && !uploadTransactionMutation.isPending
+        }
+        onEscapeKeyDown={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
+            return;
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
+            return;
+          }
+        }}
+      >
         <SheetHeader>
           <SheetTitle className="m-0">
-            {t("receive_payment_via_pinelabs_terminal")}
+            {isCreditNote ? t("record_credit_note") : t("record_payment")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("invoice")}: {invoice.number}
+            {t("recording_payment_for_account", {
+              accountName: account.name,
+            })}
           </SheetDescription>
         </SheetHeader>
 
@@ -329,28 +442,28 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <FailureView
                   pr={livePr}
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                 />
               ) : pollingTimedOut ? (
                 <TimedOutView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                 />
               ) : (
                 <InProgressView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                   isPolling={isPolling}
                 />
               )}
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Invoice Summary */}
+              {/* Account Summary - Mirrored from invoice payment sheet */}
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
                 <div className="flex text-sm justify-center text-gray-700">
-                  {t("invoice")}
-                  <p className="font-bold ml-1">{invoice.number}</p>
+                  {t("account")}:
+                  <p className="font-bold ml-1">{account.name}</p>
                 </div>
 
                 <div className="bg-white p-3 text-center">
@@ -358,46 +471,46 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                     {t("amount_due")}
                   </p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {formatCurrency(amount)}
+                    {formatCurrency(amountDue)}
                   </p>
                 </div>
 
-                {/* ✅ NEW: Decorative divider */}
+                {/* Decorative divider - Same as invoice sheet */}
                 <div
                   className="h-4 w-full bg-repeat-x -mt-4"
                   style={{
-                    backgroundImage: `url("data:image/svg+xml,...")`,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10.4' height='12' viewBox='2 3 10.4 9' xmlns='http://www.w3.org/2000/svg'%3E%3Cg filter='url(%23filter0_dd_31940_236060)'%3E%3Cpath d='M7.19629 12L12.3924 3H2.00014L7.19629 12Z' fill='white'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='filter0_dd_31940_236060' x='-0.803711' y='-1' width='16' height='16' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeFlood flood-opacity='0' result='BackgroundImageFix'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='1'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'/%3E%3CfeBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_31940_236060'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='0.5'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3CfeBlend mode='normal' in2='effect1_dropShadow_31940_236060' result='effect2_dropShadow_31940_236060'/%3E%3CfeBlend mode='normal' in='SourceGraphic' in2='effect2_dropShadow_31940_236060' result='shape'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E")`,
                     backgroundSize: "10.4px 12px",
                     backgroundPosition: "center",
                   }}
                 />
               </div>
+
+              {/* Dynamic Warning with Amount and Payment Method */}
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
                 <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 leading-relaxed">
                   {t("payment_warning_message", {
-                    amount: formatCurrency(amount),
+                    amount: formatCurrency(amountDue),
                     paymentMethod: currentPaymentMethodLabel,
                   })}
                 </p>
               </div>
 
-              {/* Payment Method */}
-              <div className="space-y-3">
-                <Label>{t("payment_method")}</Label>
+              {/* Payment Method Selection - Grid layout like invoice sheet */}
+              <div className="space-y-2">
+                <Label className="text-gray-950">{t("payment_method")}</Label>
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
-                  className="grid grid-cols-3 gap-3"  // ✅ 3-column grid
+                  className="grid grid-cols-3 gap-3"
                 >
                   {PAYMENT_METHODS.map((method) => {
                     const Icon = method.icon;
                     return (
                       <Label
                         key={method.value}
-                        className="relative flex cursor-pointer flex-col items-center 
-                                  rounded-md border border-gray-400 shadow-sm p-2.5 
-                                  outline-none has-checked:border-primary-600 has-checked:bg-green-50"
+                        className="relative flex cursor-pointer flex-col items-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-green-50"
                       >
                         <RadioGroupItem
                           value={method.value}
@@ -469,18 +582,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   resetSheetState();
                   onClose?.();
                 }}
+                className="gap-2"
+                aria-keyshortcuts="Escape"
               >
-                <ShortcutBadge shortcut="ESC" />
                 {t("cancel")}
+                <ShortcutBadge shortcut="ESC" />
               </Button>
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
                 disabled={!selectedTerminal}
                 loading={uploadTransactionMutation.isPending}
+                className="flex-1 gap-2"
+                aria-keyshortcuts="Shift+Enter"
               >
-                <ShortcutBadge shortcut="Shift+Enter" />
                 {t("send_payment_request")}
+                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
               </Button>
             </div>
           )}
@@ -490,4 +607,4 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   );
 };
 
-export default PaymentSheet;
+export default PineLabsAccountPayment;
