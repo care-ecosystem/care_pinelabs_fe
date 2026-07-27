@@ -2,7 +2,7 @@
   "collect_via_pinelabs_terminal": "Collect via Pinelabs Terminal",
   "receive_payment_via_pinelabs_terminal": "Receive Payment via Pinelabs Terminal",
   "recording_payment_for_invoice": "Recording payment for invoice {{invoiceNumber}}",
-  "recording_payment_for_account": "Recording payment for account {{accountName}}",
+  "recording_payment_for_account": "Recording payment for account",
   "switch_to_manual_entry": "Switch to manual entry",
   "manual_entry_hint": "This exits the Pinelabs flow and lets you record the payment yourself (cash, cheque, bank transfer) without the POS terminal.",
   "payment_warning_message": "{{amount}} will be collected via the Pinelabs POS terminal using {{paymentMethod}}. Confirm the terminal and location before sending the request.",
@@ -146,6 +146,7 @@
   "reconciliation_type_advance": "Advance",
   "advance_amount": "Advance Payment Amount",
   "kind_deposit": "Deposit",
+  "record_credit_note_amount": "Credit Note Amount",
   "kind_preriodic_payment": "Periodic Payment",
   "kind_online": "Online",
   "kind_kiosk": "Kiosk"

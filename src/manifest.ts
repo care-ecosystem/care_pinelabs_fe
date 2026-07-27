@@ -1,5 +1,5 @@
-import { lazy, createElement } from "react";
-import PaymentReconciliationSheetOverride from "./components/overrides/PaymentReconciliationSheetOverride";
+import { lazy } from "react";
+import PaymentReconciliationSheetOverride from "@/components/overrides/PaymentReconciliationSheetOverride";
 import routes from "./routes";
 
 const manifest = {
@@ -9,9 +9,7 @@ const manifest = {
   overrides: [
     {
       component: "PaymentReconciliationSheet",
-      replacement: (props: any) => {
-        return createElement(PaymentReconciliationSheetOverride, props);
-      },
+      replacement: PaymentReconciliationSheetOverride,
       priority: 0,
     },
   ],

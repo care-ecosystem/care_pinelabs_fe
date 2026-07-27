@@ -258,7 +258,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       terminal: selectedTerminal,
       payment_mode: selectedMethodObj.mode,
       reconciliation_type: PaymentReconciliationType.advance,
-      kind: PaymentReconciliationKind.deposit,
+      kind: PaymentReconciliationKind.online,
       issuer_type: PaymentReconciliationIssuerType.patient,
       method: selectedMethodObj.method,
       tendered_amount: amount.toFixed(2),
@@ -400,7 +400,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       >
         <SheetHeader>
           <SheetTitle className="m-0">
-            {isCreditNote ? t("record_credit_note") : t("receive_payment_via_pinelabs_terminal")}
+            {t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
             {t("recording_payment_for_account")}
@@ -520,7 +520,9 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               </div>
               {/* Advance Amount Input */}
               <div className="space-y-2">
-                <Label className="text-gray-950">{t("advance_amount")}</Label>
+                <Label className="text-gray-950">
+                  {isCreditNote ? t("record_credit_note_amount") : t("advance_amount")}
+                </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
                     ₹

@@ -1,100 +1,162 @@
-import { useTranslation } from "react-i18next";
-import { I18NNAMESPACE } from "@/lib/constants";
+import { useEffect, useState } from "react";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
-import { useState } from "react";
+import { Invoice } from "@/types/invoice";
+import { Account } from "@/types/account";
 
-interface PaymentReconciliationSheetOverrideProps {
+export interface PaymentReconciliationSheetOverrideProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   facilityId: string;
-  invoice?: any;
-  account?: any;
+  invoice?: Invoice;
+  account?: Account | string;
   accountId: string;
   isCreditNote?: boolean;
-  __base?: any;
+  __base?: React.ComponentType<PaymentReconciliationSheetOverrideProps>;
 }
 
+const cleanupModalStyles = () => {
+  document.documentElement.style.pointerEvents = "auto";
+  document.body.style.pointerEvents = "auto";
+  const blockedElements = document.querySelectorAll(
+    '[style*="pointer-events"]'
+  );
+  blockedElements.forEach((el) => {
+    const element = el as HTMLElement;
+    if (element.style.pointerEvents === "none") {
+      element.style.pointerEvents = "auto";
+      console.log("[Override] Fixed pointer-events on element:", el);
+    }
+  });
+};
+
 const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOverrideProps) => {
-  useTranslation(I18NNAMESPACE);
-  const [showNative, setShowNative] = useState(false);
 
-  const updateUrlParam = (paramName: string, paramValue: string) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set(paramName, paramValue);
-    window.history.replaceState({}, "", url.toString());
-  };
+  const [urlMode, setUrlMode] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  const removeUrlParam = (paramName: string) => {
-    const url = new URL(window.location.href);
-    url.searchParams.delete(paramName);
-    window.history.replaceState({}, "", url.toString());
-  };
-
-  if (!props.open) {
-    return null;
-  }
-
-  if (showNative && props.__base) {
-    updateUrlParam("mode", "manual");
-
-    const NativeComponent = props.__base;
-
-    const { __base, ...nativeProps } = props;
-
-    const wrappedProps = {
-      ...nativeProps,
-      onOpenChange: (open: boolean) => {
-        if (!open) {
-          setShowNative(false);
-        }
-        nativeProps.onOpenChange(open);
-      }
+  useEffect(() => {
+    const updateMode = () => {
+      const params = new URLSearchParams(window.location.search);
+      const mode = params.get("mode");
+      setUrlMode(mode);
+      setIsInitialized(true);
     };
 
-    return <NativeComponent {...wrappedProps} />;
-  }
+    updateMode();
+    window.addEventListener("popstate", updateMode);
 
-  if (props.invoice) {
-    updateUrlParam("mode", "pinelabs");
-    return (
-      <PaymentSheet
-        facilityId={props.facilityId}
-        invoice={props.invoice}
-        account={props.account}
-        autoOpen={true}
-        isCreditNote={props.isCreditNote}
-        onSwitchToManual={() => {
-          setShowNative(true);
-        }}
-        onClose={() => {
-          removeUrlParam("mode");
-          props.onOpenChange(false);
-        }}
-      />
-    );
-  }
+    return () => {
+      window.removeEventListener("popstate", updateMode);
+    };
+  }, []);
 
-  if (props.account) {
-    updateUrlParam("mode", "pinelabs");
-    return (
-      <PineLabsAccountPayment
-        facilityId={props.facilityId}
-        account={props.account}
-        autoOpen={true}
-        isCreditNote={props.isCreditNote}
-        onSwitchToManual={() => {
-          setShowNative(true);
-        }}
-        onClose={() => {
-          removeUrlParam("mode");
-          props.onOpenChange(false);
-        }}
-      />
-    );
-  }
+  useEffect(() => {
+    if (!props.open && isInitialized) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("mode")) {
+        url.searchParams.delete("mode");
+        window.history.replaceState({}, "", url.toString());
+        setUrlMode(null);
+      }
+    }
+  }, [props.open, isInitialized]);
 
-  return null;
+  try {
+    if (!props.open) {
+      return null;
+    }
+
+    const setUrlParam = (paramName: string, paramValue: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.set(paramName, paramValue);
+      window.history.replaceState({}, "", url.toString());
+      setUrlMode(paramValue);
+    };
+
+    const removeUrlParam = (paramName: string) => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete(paramName);
+      window.history.replaceState({}, "", url.toString());
+      setUrlMode(null);
+    };
+
+    if (urlMode === "manual" && props.__base) {
+      const NativeComponent = props.__base;
+
+      return (
+        <NativeComponent
+          {...props}
+          onOpenChange={(open: boolean) => {
+            if (!open) {
+              removeUrlParam("mode");
+              setTimeout(() => {
+                cleanupModalStyles();
+              }, 0);
+            }
+            props.onOpenChange(open);
+          }}
+        />
+      );
+    }
+
+    if (props.invoice) {
+      if (!urlMode && isInitialized) {
+        setUrlParam("mode", "pinelabs");
+      }
+
+      return (
+        <PaymentSheet
+          facilityId={props.facilityId}
+          invoice={props.invoice}
+          account={undefined}
+          autoOpen={true}
+          isCreditNote={props.isCreditNote}
+          onSwitchToManual={() => {
+            setUrlParam("mode", "manual");
+          }}
+          onClose={() => {
+            removeUrlParam("mode");
+            setTimeout(() => {
+              cleanupModalStyles();
+            }, 0);
+
+            props.onOpenChange(false);
+          }}
+        />
+      );
+    }
+
+    if (props.account || props.accountId) {
+      if (!urlMode && isInitialized) {
+        setUrlParam("mode", "pinelabs");
+      }
+
+      return (
+        <PineLabsAccountPayment
+          facilityId={props.facilityId}
+          account={props.account ?? props.accountId}
+          autoOpen={true}
+          isCreditNote={props.isCreditNote}
+          onSwitchToManual={() => {
+            setUrlParam("mode", "manual");
+          }}
+          onClose={() => {
+            removeUrlParam("mode");
+            setTimeout(() => {
+              cleanupModalStyles();
+            }, 0);
+            props.onOpenChange(false);
+          }}
+        />
+      );
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[Override] ERROR:", error);
+    return null;
+  }
 };
 
 export default PaymentReconciliationSheetOverride;
