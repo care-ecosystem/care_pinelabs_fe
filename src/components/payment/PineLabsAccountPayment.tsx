@@ -1,5 +1,5 @@
-import { CreditCard, Link2Icon, QrCode, Smartphone, Info } from "lucide-react";
-import { FC, useCallback, useState, useEffect } from "react";
+import { CreditCard, Link2Icon, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
+import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -44,16 +44,18 @@ import {
 import { Account } from "@/types/account";
 import { Loader2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 
 export type PineLabsAccountPaymentProps = {
   facilityId: string;
-  account: Account | string;  
+  account: Account | string;
   autoOpen?: boolean;
   isCreditNote?: boolean;
   onClose?: () => void;
   onSuccess?: () => void;
-  showTrigger?: boolean; 
+  showTrigger?: boolean;
+  onSwitchToManual?: () => void;
 };
 
 // Payment methods available for account payments
@@ -86,15 +88,15 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   onClose,
   onSuccess,
   showTrigger = true,
+  onSwitchToManual,
 }) => {
+
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
-  // ✅ NEW: Determine account ID and whether we need to fetch
   const isAccountString = typeof accountProp === "string";
   const accountId = isAccountString ? accountProp : accountProp?.id;
 
-  // ✅ NEW: Fetch account if only ID was provided
   const {
     data: fetchedAccount,
     isLoading: accountLoading,
@@ -102,16 +104,16 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   } = useQuery({
     queryKey: ["account", accountId],
     queryFn: () => {
-      console.log("[PineLabsAccountPayment] Fetching account:", accountId);
       return apis.accounts.retrieve(facilityId, accountId!);
     },
-    enabled: isAccountString && !!accountId,  
+    enabled: isAccountString && !!accountId,
   });
 
   const account = isAccountString ? fetchedAccount : (accountProp as Account);
 
   // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
+  const [tenderedAmount, setTenderedAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
   );
@@ -125,18 +127,15 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amountDue = account ? Math.abs(parseFloat(account.total_balance || "0")) : 0;
+  const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
 
-  useEffect(() => {
-    console.log("[PineLabsAccountPayment] State:", {
-      accountId,
-      isAccountString,
-      accountLoading,
-      hasAccount: !!account,
-      amountDue,
-      accountName: account?.name,
-    });
-  }, [account, accountLoading, amountDue, isAccountString, accountId]);
+  const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^\d*\.?\d{0,2}$/;
+    if (regex.test(value) || value === "") {
+      setTenderedAmount(value);
+    }
+  };
 
   // Show loading state while fetching account
   if (!isAccountString && accountLoading) {
@@ -226,6 +225,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const resetSheetState = useCallback(() => {
     setPaymentMethod(PAYMENT_METHODS[0].value);
     setSelectedTerminal(undefined);
+    setTenderedAmount("");
     setPrId(null);
     setSettledPr(null);
     setPollingTimedOut(false);
@@ -234,41 +234,43 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   // Build payment payload for Pine Labs
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
     if (!selectedTerminal) {
-        toast.error(t("error_please_select_terminal"));
-        return null;
+      toast.error(t("error_please_select_terminal"));
+      return null;
     }
 
-    if (!(amountDue > 0)) {
-        toast.error(t("error_tendered_amount_must_be_positive"));
-        return null;
+    const amount = parseFloat(tenderedAmount);  
+
+    if (!(amount > 0)) {
+      toast.error(t("error_tendered_amount_must_be_positive"));
+      return null;
     }
 
     const selectedMethodObj = PAYMENT_METHODS.find(
-        (method) => method.value === paymentMethod
+      (method) => method.value === paymentMethod
     );
 
     if (!selectedMethodObj) {
-        toast.error(t("error_invalid_payment_method"));
-        return null;
+      toast.error(t("error_invalid_payment_method"));
+      return null;
     }
 
     return {
-        terminal: selectedTerminal,
-        payment_mode: selectedMethodObj.mode,
-        reconciliation_type: PaymentReconciliationType.advance,  
-        kind: PaymentReconciliationKind.online,
-        issuer_type: PaymentReconciliationIssuerType.patient,
-        method: selectedMethodObj.method,
-        tendered_amount: amountDue.toFixed(2),
-        returned_amount: "0",
-        is_credit_note: isCreditNote,
-        account: account.id,
-        target_invoice: undefined,  // Account payment has no invoice
-        location: selectedLocation?.id ?? null,
-        disposition: null,
-        note: null,
+      terminal: selectedTerminal,
+      payment_mode: selectedMethodObj.mode,
+      reconciliation_type: PaymentReconciliationType.advance,
+      kind: PaymentReconciliationKind.deposit,
+      issuer_type: PaymentReconciliationIssuerType.patient,
+      method: selectedMethodObj.method,
+      tendered_amount: amount.toFixed(2),
+      returned_amount: "0",
+      is_credit_note: isCreditNote,
+      account: account.id,
+      target_invoice: undefined,
+      location: selectedLocation?.id ?? null,
+      disposition: null,
+      note: null,
     };
-    }, [amountDue, account.id, selectedLocation, selectedTerminal, paymentMethod, t]);
+  }, [tenderedAmount, account.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
 
   // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
@@ -349,7 +351,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !uploadTransactionMutation.isPending,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !!tenderedAmount && !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
@@ -404,6 +406,20 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
             {t("recording_payment_for_account")}
           </SheetDescription>
         </SheetHeader>
+        {isFormStep && (
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                onSwitchToManual?.();
+              }}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <ArrowUpLeft className="h-4 w-4" />
+              {t("switch_to_manual_entry")}
+            </button>
+          </div>
+        )}
 
         <div className="space-y-6 py-4">
           {!isFormStep ? (
@@ -465,7 +481,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                 <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 leading-relaxed">
                   {t("payment_warning_message", {
-                    amount: formatCurrency(amountDue),
+                    amount: formatCurrency(parseFloat(tenderedAmount) || 0),
                     paymentMethod: currentPaymentMethodLabel,
                   })}
                 </p>
@@ -502,9 +518,32 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                   })}
                 </RadioGroup>
               </div>
+              {/* Advance Amount Input */}
+              <div className="space-y-2">
+                <Label className="text-gray-950">{t("advance_amount")}</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
+                    ₹
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={tenderedAmount}
+                    onChange={handleTenderedAmountChange}
+                    className="w-full pl-8"
+                  />
+                </div>
+                {tenderedAmount && (
+                  <p className="text-xs text-gray-500">
+                    {t("amount")}: {formatCurrency(parseFloat(tenderedAmount) || 0)}
+                  </p>
+                )}
+              </div>
 
               {/* Location Selection */}
-              <div className="space-y-2">
+              
+              <div className="space-y-2 ">
                 <Label className="text-gray-950">{t("location")}</Label>
                 <LocationPicker
                   facilityId={facilityId}
@@ -512,6 +551,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                   onValueChange={setSelectedLocation}
                   placeholder={t("select_location")}
                   className="w-full"
+                  data-state="open"
                 />
               </div>
 
@@ -565,7 +605,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
-                disabled={!selectedTerminal}
+                disabled={!selectedTerminal || !tenderedAmount || uploadTransactionMutation.isPending}
                 loading={uploadTransactionMutation.isPending}
                 aria-keyshortcuts="Shift+Enter"
               >

@@ -1,4 +1,4 @@
-import { lazy } from "react";
+import { lazy, createElement } from "react";
 import PaymentReconciliationSheetOverride from "./components/overrides/PaymentReconciliationSheetOverride";
 import routes from "./routes";
 
@@ -6,15 +6,15 @@ const manifest = {
   plugin: "care_pinelabs",
   routes,
   extends: [],
-  
   overrides: [
     {
       component: "PaymentReconciliationSheet",
-      replacement: PaymentReconciliationSheetOverride,
+      replacement: (props: any) => {
+        return createElement(PaymentReconciliationSheetOverride, props);
+      },
       priority: 0,
     },
   ],
-  
   components: {
     FacilityHomeActions: lazy(
       () => import("./components/pluggables/FacilityHomeActions")

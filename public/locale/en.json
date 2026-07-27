@@ -144,6 +144,7 @@
   "reconciliation_type_payment": "Payment",
   "reconciliation_type_adjustment": "Adjustment",
   "reconciliation_type_advance": "Advance",
+  "advance_amount": "Advance Payment Amount",
   "kind_deposit": "Deposit",
   "kind_preriodic_payment": "Periodic Payment",
   "kind_online": "Online",

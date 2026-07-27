@@ -1,4 +1,4 @@
-import { CreditCard, QrCode, Smartphone } from "lucide-react";
+import { ArrowUpLeft, CreditCard, QrCode, Smartphone } from "lucide-react";
 import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -56,6 +56,7 @@ export type PaymentSheetProps = {
   autoOpen?: boolean;
   isCreditNote?: boolean;
   onClose?: () => void;
+  onSwitchToManual?: () => void;
 };
 
 const PAYMENT_METHODS = [
@@ -86,6 +87,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   autoOpen = false,
   isCreditNote = false,
   onClose,
+  onSwitchToManual,
 }) => {
 
   if (account) {
@@ -101,7 +103,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   }
 
   if (!invoice) {
-    console.warn("[PaymentSheet] No invoice or account provided");
     return null;
   }
 
@@ -315,6 +316,21 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
           </SheetDescription>
         </SheetHeader>
 
+        {isFormStep && (
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                onSwitchToManual?.();
+              }}
+              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+            >
+              <ArrowUpLeft className="h-4 w-4" />
+              {t("switch_to_manual_entry")}
+            </button>
+          </div>
+        )}
+
         <div className="space-y-6 py-4">
           {!isFormStep ? (
             <div className="space-y-6">
@@ -384,7 +400,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <RadioGroup
                   value={paymentMethod}
                   onValueChange={setPaymentMethod}
-                  className="grid grid-cols-3 gap-3"  
+                  className="grid grid-cols-3 gap-3"
                 >
                   {PAYMENT_METHODS.map((method) => {
                     const Icon = method.icon;
@@ -456,29 +472,31 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               {t("cancel_transaction")}
             </Button>
           ) : (
-            <div className="flex justify-between gap-3 w-full">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsOpen(false);
-                  resetSheetState();
-                  onClose?.();
-                }}
-              >
-                {t("cancel")}
-                <ShortcutBadge shortcut="ESC" />
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleCollectPayment}
-                disabled={!selectedTerminal}
-                loading={uploadTransactionMutation.isPending}
-                aria-keyshortcuts="Shift+Enter"
-              >
-                {t("send_payment_request")}
-                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
-              </Button>
+            <div className="flex flex-col gap-3 w-full">
+              <div className="flex justify-between gap-3 w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsOpen(false);
+                    resetSheetState();
+                    onClose?.();
+                  }}
+                >
+                  {t("cancel")}
+                  <ShortcutBadge shortcut="ESC" />
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleCollectPayment}
+                  disabled={!selectedTerminal || uploadTransactionMutation.isPending}
+                  loading={uploadTransactionMutation.isPending}
+                  aria-keyshortcuts="Shift+Enter"
+                >
+                  {t("send_payment_request")}
+                  <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
+                </Button>
+              </div>
             </div>
           )}
         </SheetFooter>
@@ -488,3 +506,5 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 };
 
 export default PaymentSheet;
+
+
