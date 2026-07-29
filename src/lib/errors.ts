@@ -1,4 +1,5 @@
 import { APIError } from "@/apis/request";
+import { Device } from "@/types/device";
 import { PinelabsErrorEntry, PinelabsErrorEnvelope } from "@/types/gateway";
 
 const FRIENDLY_BY_TYPE: Record<string, (entry: PinelabsErrorEntry) => string> =
@@ -61,4 +62,26 @@ export const getPinelabsErrorType = (error: unknown): string | undefined => {
     return data.errors[0].type;
   }
   return undefined;
+};
+
+export const validateTerminalOnSubmit = (
+  device: Device | null
+): string | null => {
+  if (!device) {
+    return "Please select a terminal";
+  }
+
+  if (!device.current_location || !device.current_location.id) {
+    return "Terminal does not have a location associated. Please associate this terminal to a location first.";
+  }
+
+  if (!device.care_metadata?.store_id || device.care_metadata.store_id.trim() === "") {
+    return "Terminal configuration is incomplete: Store ID is missing. Please configure this terminal with a Store ID.";
+  }
+
+  if (!device.care_metadata?.client_id || device.care_metadata.client_id.trim() === "") {
+    return "Terminal configuration is incomplete: Client ID is missing. Please configure this terminal with a Client ID.";
+  }
+
+  return null;
 };

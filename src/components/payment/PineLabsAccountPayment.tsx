@@ -1,5 +1,5 @@
-import { CreditCard, Link2Icon, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
-import { FC, useCallback, useState } from "react";
+import { CreditCard, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -15,7 +15,6 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 import { apis } from "@/apis";
@@ -23,7 +22,6 @@ import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { LocationPicker } from "@/components/payment/LocationPicker";
 import { TerminalSelect } from "@/components/payment/TerminalSelect";
 import {
   FailureView,
@@ -32,7 +30,6 @@ import {
   TimedOutView,
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
-import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
@@ -42,9 +39,11 @@ import {
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 import { Account } from "@/types/account";
+import { Device } from "@/types/device";
 import { Loader2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { validateTerminalOnSubmit } from "@/lib/errors";
 
 
 export type PineLabsAccountPaymentProps = {
@@ -87,29 +86,25 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   isCreditNote = false,
   onClose,
   onSuccess,
-  showTrigger = true,
   onSwitchToManual,
+  showTrigger = true,
 }) => {
-
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
-  const isAccountString = typeof accountProp === "string";
-  const accountId = isAccountString ? accountProp : accountProp?.id;
+  const accountId = useMemo(() => {
+    return typeof accountProp === "string" ? accountProp : accountProp?.id;
+  }, [accountProp]);
 
   const {
-    data: fetchedAccount,
+    data: account,
     isLoading: accountLoading,
     error: accountError,
   } = useQuery({
     queryKey: ["account", accountId],
-    queryFn: () => {
-      return apis.accounts.retrieve(facilityId, accountId!);
-    },
-    enabled: isAccountString && !!accountId,
+    queryFn: () => apis.accounts.retrieve(facilityId, accountId),
+    enabled: !!accountId,
   });
-
-  const account = isAccountString ? fetchedAccount : (accountProp as Account);
 
   // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
@@ -117,17 +112,19 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
   );
-  const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
-    null
-  );
+
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
+  const [selectedTerminalData, setSelectedTerminalData] = useState<Device | null>(null);
   const [prId, setPrId] = useState<string | null>(null);
   const [settledPr, setSettledPr] = useState<PaymentReconciliation | null>(
     null
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
+  const amountDue = useMemo(
+    () => (account ? parseFloat(account.total_balance || "0") : 0),
+    [account]
+  );
 
   const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -138,7 +135,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   };
 
   // Show loading state while fetching account
-  if (!isAccountString && accountLoading) {
+  if (accountLoading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6">
@@ -152,14 +149,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   }
 
   // Show error state if account fetch failed
-  if (accountError || (!isAccountString && !account)) {
+  if (accountError || !account) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <Card className="w-96">
           <CardContent className="py-12 text-center space-y-4">
-            <p className="text-red-600">
-              {t("error_loading_account")}
-            </p>
+            <p className="text-red-600">{t("error_loading_account")}</p>
             {accountError && (
               <p className="text-sm text-gray-500">{String(accountError)}</p>
             )}
@@ -170,11 +165,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
         </Card>
       </div>
     );
-  }
-
-  // Return null if account still not available
-  if (!account) {
-    return null;
   }
 
   const handleSettled = useCallback(
@@ -225,6 +215,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const resetSheetState = useCallback(() => {
     setPaymentMethod(PAYMENT_METHODS[0].value);
     setSelectedTerminal(undefined);
+    setSelectedTerminalData(null); 
     setTenderedAmount("");
     setPrId(null);
     setSettledPr(null);
@@ -237,8 +228,13 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       toast.error(t("error_please_select_terminal"));
       return null;
     }
+    const validationError = validateTerminalOnSubmit(selectedTerminalData);
+    if (validationError) {
+      toast.error(validationError);
+      return null;
+    }
 
-    const amount = parseFloat(tenderedAmount);  
+    const amount = parseFloat(tenderedAmount);
 
     if (!(amount > 0)) {
       toast.error(t("error_tendered_amount_must_be_positive"));
@@ -266,11 +262,22 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       is_credit_note: isCreditNote,
       account: account.id,
       target_invoice: undefined,
-      location: selectedLocation?.id ?? null,
+      location: selectedTerminalData?.current_location?.id ?? null,
       disposition: null,
       note: null,
+      ...(selectedTerminalData?.care_metadata && {
+        metadata: selectedTerminalData.care_metadata, 
+      }),
     };
-  }, [tenderedAmount, account.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
+  }, [
+    tenderedAmount,
+    account.id,
+    selectedTerminal,
+    selectedTerminalData, 
+    paymentMethod,
+    isCreditNote,
+    t,
+  ]);
 
   // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
@@ -346,16 +353,18 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   // Get the payment method label using the unique value
   const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
 
-  // Keyboard shortcuts using custom hook (following care_fe pattern)
-  // Shift+Enter: Send payment request
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !!tenderedAmount && !uploadTransactionMutation.isPending,
+    enabled:
+      isOpen &&
+      isFormStep &&
+      !!selectedTerminal &&
+      !!tenderedAmount &&
+      !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
-  // ESC: Cancel/Close
   useButtonShortcut({
     key: "Escape",
     enabled: isOpen && isFormStep,
@@ -369,255 +378,232 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       {showTrigger && (
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-start">
-            <Link2Icon className="h-4 w-4" />
-            {isCreditNote
-              ? t("record_credit_note_via_pinelabs")
-              : t("receive_payment_via_pinelabs_terminal")}
-          </Button>
-        </SheetTrigger>
-      )}
-      <SheetContent
-        className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
-        showCloseButton={
-          !isTransactionInProgress && !uploadTransactionMutation.isPending
-        }
-        onEscapeKeyDown={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
-            e.preventDefault();
-            toast.warning(t("toast_wait_for_transaction"));
-            return;
+        <SheetContent
+          className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
+          showCloseButton={
+            !isTransactionInProgress && !uploadTransactionMutation.isPending
           }
-        }}
-        onInteractOutside={(e) => {
-          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
-            e.preventDefault();
-            toast.warning(t("toast_wait_for_transaction"));
-            return;
-          }
-        }}
-      >
-        <SheetHeader>
-          <SheetTitle className="m-0">
-            {t("receive_payment_via_pinelabs_terminal")}
-          </SheetTitle>
-          <SheetDescription className="text-gray-700">
-            {t("recording_payment_for_account")}
-          </SheetDescription>
-        </SheetHeader>
-        {isFormStep && (
-          <div className="pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                onSwitchToManual?.();
-              }}
-              className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
-            >
-              <ArrowUpLeft className="h-4 w-4" />
-              {t("switch_to_manual_entry")}
-            </button>
-          </div>
-        )}
-
-        <div className="space-y-6 py-4">
-          {!isFormStep ? (
-            <div className="space-y-6">
-              {showSuccess && livePr ? (
-                <SuccessView
-                  pr={livePr}
-                  paymentMethodLabel={currentPaymentMethodLabel}
-                />
-              ) : showFailure && livePr ? (
-                <FailureView
-                  pr={livePr}
-                  paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
-                />
-              ) : pollingTimedOut ? (
-                <TimedOutView
-                  paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
-                />
-              ) : (
-                <InProgressView
-                  paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
-                  isPolling={isPolling}
-                />
-              )}
+          onEscapeKeyDown={(e) => {
+            if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+              e.preventDefault();
+              toast.warning(t("toast_wait_for_transaction"));
+            }
+          }}
+          onInteractOutside={(e) => {
+            if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+              e.preventDefault();
+              toast.warning(t("toast_wait_for_transaction"));
+            }
+          }}
+        >
+          <SheetHeader>
+            <SheetTitle className="m-0">
+              {t("receive_payment_via_pinelabs_terminal")}
+            </SheetTitle>
+            <SheetDescription className="text-gray-700">
+              {t("recording_payment_for_account")}
+            </SheetDescription>
+          </SheetHeader>
+          {isFormStep && (
+            <div className="pt-4">
+              <button
+                type="button"
+                onClick={() => onSwitchToManual?.()}
+                className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
+              >
+                <ArrowUpLeft className="h-4 w-4" />
+                {t("switch_to_manual_entry")}
+              </button>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
-                <div className="flex text-sm justify-center text-gray-700">
-                  {t("account")}:
-                  <p className="font-bold ml-1">{account.name}</p>
-                </div>
+          )}
 
-                <div className="bg-white p-3 text-center">
-                  <p className="text-sm text-gray-600 mb-1">
-                    {t("amount_due")}
-                  </p>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {formatCurrency(amountDue)}
-                  </p>
-                </div>
-
-                {/* Decorative divider - Same as invoice sheet */}
-                <div
-                  className="h-4 w-full bg-repeat-x -mt-4"
-                  style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10.4' height='12' viewBox='2 3 10.4 9' xmlns='http://www.w3.org/2000/svg'%3E%3Cg filter='url(%23filter0_dd_31940_236060)'%3E%3Cpath d='M7.19629 12L12.3924 3H2.00014L7.19629 12Z' fill='white'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='filter0_dd_31940_236060' x='-0.803711' y='-1' width='16' height='16' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeFlood flood-opacity='0' result='BackgroundImageFix'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='1'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'/%3E%3CfeBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_31940_236060'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='0.5'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3CfeBlend mode='normal' in2='effect1_dropShadow_31940_236060' result='effect2_dropShadow_31940_236060'/%3E%3CfeBlend mode='normal' in='SourceGraphic' in2='effect2_dropShadow_31940_236060' result='shape'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E")`,
-                    backgroundSize: "10.4px 12px",
-                    backgroundPosition: "center",
-                  }}
-                />
-              </div>
-
-              {/* Dynamic Warning with Amount and Payment Method */}
-              <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
-                <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-900 leading-relaxed">
-                  {t("payment_warning_message", {
-                    amount: formatCurrency(parseFloat(tenderedAmount) || 0),
-                    paymentMethod: currentPaymentMethodLabel,
-                  })}
-                </p>
-              </div>
-
-              {/* Payment Method Selection - Grid layout like invoice sheet */}
-              <div className="space-y-2">
-                <Label className="text-gray-950">{t("payment_method")}</Label>
-                <RadioGroup
-                  value={paymentMethod}
-                  onValueChange={setPaymentMethod}
-                  className="grid grid-cols-3 gap-3"
-                >
-                  {PAYMENT_METHODS.map((method) => {
-                    const Icon = method.icon;
-                    return (
-                      <Label
-                        key={method.value}
-                        className="relative flex cursor-pointer flex-col items-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-green-50"
-                      >
-                        <RadioGroupItem
-                          value={method.value}
-                          className="absolute left-2 top-2"
-                          aria-label={`payment-method-${method.value}`}
-                        />
-                        <div className="grid grow justify-items-center gap-1">
-                          <Icon className="size-5 text-gray-600" />
-                          <span className="text-sm font-medium text-center text-gray-950">
-                            {t(`payment_method_${method.value}`)}
-                          </span>
-                        </div>
-                      </Label>
-                    );
-                  })}
-                </RadioGroup>
-              </div>
-              {/* Advance Amount Input */}
-              <div className="space-y-2">
-                <Label className="text-gray-950">
-                  {isCreditNote ? t("record_credit_note_amount") : t("advance_amount")}
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
-                    ₹
-                  </span>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={tenderedAmount}
-                    onChange={handleTenderedAmountChange}
-                    className="w-full pl-8"
+          <div className="space-y-6 py-4">
+            {!isFormStep ? (
+              <div className="space-y-6">
+                {showSuccess && livePr ? (
+                  <SuccessView
+                    pr={livePr}
+                    paymentMethodLabel={currentPaymentMethodLabel}
                   />
-                </div>
-                {tenderedAmount && (
-                  <p className="text-xs text-gray-500">
-                    {t("amount")}: {formatCurrency(parseFloat(tenderedAmount) || 0)}
-                  </p>
+                ) : showFailure && livePr ? (
+                  <FailureView
+                    pr={livePr}
+                    paymentMethodLabel={currentPaymentMethodLabel}
+                    amount={amountDue}
+                  />
+                ) : pollingTimedOut ? (
+                  <TimedOutView
+                    paymentMethodLabel={currentPaymentMethodLabel}
+                    amount={amountDue}
+                  />
+                ) : (
+                  <InProgressView
+                    paymentMethodLabel={currentPaymentMethodLabel}
+                    amount={amountDue}
+                    isPolling={isPolling}
+                  />
                 )}
               </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
+                  <div className="flex text-sm justify-center text-gray-700">
+                    {t("account")}:
+                    <p className="font-bold ml-1">{account.name}</p>
+                  </div>
 
-              {/* Location Selection */}
-              
-              <div className="space-y-2 ">
-                <Label className="text-gray-950">{t("location")}</Label>
-                <LocationPicker
-                  facilityId={facilityId}
-                  value={selectedLocation}
-                  onValueChange={setSelectedLocation}
-                  placeholder={t("select_location")}
-                  className="w-full"
-                  data-state="open"
-                />
+                  <div className="bg-white p-3 text-center">
+                    <p className="text-sm text-gray-600 mb-1">
+                      {t("amount_due")}
+                    </p>
+                    <p className="text-3xl font-bold text-gray-900">
+                      {formatCurrency(amountDue)}
+                    </p>
+                  </div>
+
+                  <div
+                    className="h-4 w-full bg-repeat-x -mt-4"
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg width='10.4' height='12' viewBox='2 3 10.4 9' xmlns='http://www.w3.org/2000/svg'%3E%3Cg filter='url(%23filter0_dd_31940_236060)'%3E%3Cpath d='M7.19629 12L12.3924 3H2.00014L7.19629 12Z' fill='white'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='filter0_dd_31940_236060' x='-0.803711' y='-1' width='16' height='16' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeFlood flood-opacity='0' result='BackgroundImageFix'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='1'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'/%3E%3CfeBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_31940_236060'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='0.5'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3CfeBlend mode='normal' in2='effect1_dropShadow_31940_236060' result='effect2_dropShadow_31940_236060'/%3E%3CfeBlend mode='normal' in='SourceGraphic' in2='effect2_dropShadow_31940_236060' result='shape'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E")`,
+                      backgroundSize: "10.4px 12px",
+                      backgroundPosition: "center",
+                    }}
+                  />
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
+                  <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    {t("payment_warning_message", {
+                      amount: formatCurrency(parseFloat(tenderedAmount) || 0),
+                      paymentMethod: currentPaymentMethodLabel,
+                    })}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-950">{t("payment_method")}</Label>
+                  <RadioGroup
+                    value={paymentMethod}
+                    onValueChange={setPaymentMethod}
+                    className="grid grid-cols-3 gap-3"
+                  >
+                    {PAYMENT_METHODS.map((method) => {
+                      const Icon = method.icon;
+                      return (
+                        <Label
+                          key={method.value}
+                          className="relative flex cursor-pointer flex-col items-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-green-50"
+                        >
+                          <RadioGroupItem
+                            value={method.value}
+                            className="absolute left-2 top-2"
+                            aria-label={`payment-method-${method.value}`}
+                          />
+                          <div className="grid grow justify-items-center gap-1">
+                            <Icon className="size-5 text-gray-600" />
+                            <span className="text-sm font-medium text-center text-gray-950">
+                              {t(`payment_method_${method.value}`)}
+                            </span>
+                          </div>
+                        </Label>
+                      );
+                    })}
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-gray-950">
+                    {t("advance_amount")}
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
+                      ₹
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={tenderedAmount}
+                      onChange={handleTenderedAmountChange}
+                      className="w-full pl-8"
+                    />
+                  </div>
+                  {tenderedAmount && (
+                    <p className="text-xs text-gray-500">
+                      {t("amount")}: {formatCurrency(parseFloat(tenderedAmount) || 0)}
+                    </p>
+                  )}
+                </div>
+
+                
+
+                <div className="space-y-2">
+                  <Label className="text-gray-950">{t("select_terminal")}</Label>
+                  <TerminalSelect
+                    facilityId={facilityId}
+                    value={selectedTerminal}
+                    onValueChange={setSelectedTerminal}
+                    onTerminalDataChange={setSelectedTerminalData} 
+                  />
+                </div>
               </div>
+            )}
+          </div>
 
-              {/* Terminal Selection */}
-              <div className="space-y-2">
-                <Label className="text-gray-950">{t("select_terminal")}</Label>
-                <TerminalSelect
-                  facilityId={facilityId}
-                  value={selectedTerminal}
-                  onValueChange={setSelectedTerminal}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <SheetFooter className="sticky bottom-0 bg-white p-4 border-t border-gray-200 -mx-6">
-          {showSuccess || showFailure || pollingTimedOut ? (
-            <Button
-              variant="primary"
-              onClick={handleCloseAfterTerminal}
-              className="w-full"
-            >
-              {t("close")}
-            </Button>
-          ) : isTransactionInProgress ? (
-            <Button
-              variant="outline"
-              onClick={handleCancelTransaction}
-              loading={cancelTransactionMutation.isPending}
-              className="w-full"
-            >
-              {t("cancel_transaction")}
-            </Button>
-          ) : (
-            <div className="flex justify-between gap-3 w-full">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setIsOpen(false);
-                  resetSheetState();
-                  onClose?.();
-                }}
-                className="gap-2"
-                aria-keyshortcuts="Escape"
-              >
-                {t("cancel")}
-                <ShortcutBadge shortcut="ESC" />
-              </Button>
+          <SheetFooter className="sticky bottom-0 bg-white p-4 border-t border-gray-200 -mx-6">
+            {showSuccess || showFailure || pollingTimedOut ? (
               <Button
                 variant="primary"
-                onClick={handleCollectPayment}
-                disabled={!selectedTerminal || !tenderedAmount || uploadTransactionMutation.isPending}
-                loading={uploadTransactionMutation.isPending}
-                aria-keyshortcuts="Shift+Enter"
+                onClick={handleCloseAfterTerminal}
+                className="w-full"
               >
-                {t("send_payment_request")}
-                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
+                {t("close")}
               </Button>
-            </div>
-          )}
-        </SheetFooter>
-      </SheetContent>
+            ) : isTransactionInProgress ? (
+              <Button
+                variant="outline"
+                onClick={handleCancelTransaction}
+                loading={cancelTransactionMutation.isPending}
+                className="w-full"
+              >
+                {t("cancel_transaction")}
+              </Button>
+            ) : (
+              <div className="flex justify-between gap-3 w-full">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsOpen(false);
+                    resetSheetState();
+                    onClose?.();
+                  }}
+                  className="gap-2"
+                  aria-keyshortcuts="Escape"
+                >
+                  {t("cancel")}
+                  <ShortcutBadge shortcut="ESC" />
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleCollectPayment}
+                  disabled={
+                    !selectedTerminal ||
+                    !tenderedAmount ||
+                    uploadTransactionMutation.isPending
+                  }
+                  loading={uploadTransactionMutation.isPending}
+                  aria-keyshortcuts="Shift+Enter"
+                >
+                  {t("send_payment_request")}
+                  <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
+                </Button>
+              </div>
+            )}
+          </SheetFooter>
+        </SheetContent>
+      )}
     </Sheet>
   );
 };

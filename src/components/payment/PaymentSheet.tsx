@@ -21,8 +21,9 @@ import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { LocationPicker } from "@/components/payment/LocationPicker";
+// import { LocationPicker } from "@/components/payment/LocationPicker";
 import { TerminalSelect } from "@/components/payment/TerminalSelect";
+import { Device } from "@/types/device";
 import {
   FailureView,
   InProgressView,
@@ -31,8 +32,8 @@ import {
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
 import { Invoice } from "@/types/invoice";
-import { Account } from "@/types/account";
-import { LocationRead } from "@/types/location";
+// import { Account } from "@/types/account";
+// import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
@@ -44,6 +45,7 @@ import {
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { ShortcutBadge } from "@/components/common/ShortcutBadge";
 import { useButtonShortcut } from "@/hooks/useButtonShortcut";
+import { validateTerminalOnSubmit } from "@/lib/errors";
 
 
 /**
@@ -52,7 +54,7 @@ import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 export type PaymentSheetProps = {
   facilityId: string;
   invoice?: Invoice;
-  account?: Account | string;
+  account?: string;
   autoOpen?: boolean;
   isCreditNote?: boolean;
   onClose?: () => void;
@@ -97,7 +99,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         account={account}
         autoOpen={autoOpen}
         isCreditNote={isCreditNote}
+        onSwitchToManual={onSwitchToManual}
         onClose={onClose}
+        showTrigger={false}
       />
     );
   }
@@ -113,10 +117,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
   );
-  const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
-    null
-  );
+  // const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
+  //   null
+  // );
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
+  const [selectedTerminalData, setSelectedTerminalData] = useState<Device | null>(null);
   const [prId, setPrId] = useState<string | null>(null);
   const [settledPr, setSettledPr] = useState<PaymentReconciliation | null>(
     null
@@ -169,6 +174,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const resetSheetState = useCallback(() => {
     setPaymentMethod(PAYMENT_METHODS[0].value);
     setSelectedTerminal(undefined);
+    setSelectedTerminalData(null);
     setPrId(null);
     setSettledPr(null);
     setPollingTimedOut(false);
@@ -177,6 +183,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
     if (!selectedTerminal) {
       toast.error(t("error_please_select_terminal"));
+      return null;
+    }
+
+    const validationError = validateTerminalOnSubmit(selectedTerminalData);
+    if (validationError) {
+      toast.error(validationError);
       return null;
     }
 
@@ -206,11 +218,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       is_credit_note: false,
       account: invoice.account.id,
       target_invoice: invoice.id,
-      location: selectedLocation?.id ?? null,
+      location: selectedTerminalData?.current_location?.id ?? null,
       disposition: null,
       note: null,
+      ...(selectedTerminalData?.care_metadata && {
+        metadata: selectedTerminalData.care_metadata,
+      }),
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, t]);
+  }, [amount, invoice, selectedTerminal, selectedTerminalData, paymentMethod, t]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -299,7 +314,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       onClose?.();
     },
   });
-
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -429,7 +443,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               </div>
 
               {/* Location Selection */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <Label className="text-gray-950">{t("location")}</Label>
                 <LocationPicker
                   facilityId={facilityId}
@@ -438,7 +452,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   placeholder={t("select_location")}
                   className="w-full"
                 />
-              </div>
+              </div> */}
 
               {/* Terminal Selection */}
               <div className="space-y-2">
@@ -447,6 +461,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   facilityId={facilityId}
                   value={selectedTerminal}
                   onValueChange={setSelectedTerminal}
+                  onTerminalDataChange={setSelectedTerminalData}
                 />
               </div>
             </div>
