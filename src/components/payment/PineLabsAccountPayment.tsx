@@ -1,11 +1,13 @@
-import { ArrowUpLeft, CreditCard, QrCode, Smartphone } from "lucide-react";
+import { CreditCard, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
 import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ShortcutBadge } from "@/components/common/ShortcutBadge";
+import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +16,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Info } from "lucide-react";
 
 import { apis } from "@/apis";
 import { I18NNAMESPACE } from "@/lib/constants";
@@ -30,8 +31,6 @@ import {
   TimedOutView,
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
-import { Invoice } from "@/types/invoice";
-import { Account } from "@/types/account";
 import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
@@ -41,24 +40,23 @@ import {
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
-import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
-import { ShortcutBadge } from "@/components/common/ShortcutBadge";
-import { useButtonShortcut } from "@/hooks/useButtonShortcut";
+import { Account } from "@/types/account";
+import { Loader2Icon } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 
-/**
- * UPDATED: PaymentSheet now accepts either invoice OR account
- */
-export type PaymentSheetProps = {
+export type PineLabsAccountPaymentProps = {
   facilityId: string;
-  invoice?: Invoice;
-  account?: Account | string;
+  account: Account | string;
   autoOpen?: boolean;
   isCreditNote?: boolean;
   onClose?: () => void;
+  onSuccess?: () => void;
   onSwitchToManual?: () => void;
 };
 
+// Payment methods available for account payments
 const PAYMENT_METHODS = [
   {
     value: "bharat_qr",
@@ -80,36 +78,39 @@ const PAYMENT_METHODS = [
   },
 ] as const;
 
-export const PaymentSheet: FC<PaymentSheetProps> = ({
+export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   facilityId,
-  invoice,
-  account,
+  account: accountProp,
   autoOpen = false,
   isCreditNote = false,
   onClose,
+  onSuccess,
   onSwitchToManual,
 }) => {
-
-  if (account) {
-    return (
-      <PineLabsAccountPayment
-        facilityId={facilityId}
-        account={account}
-        autoOpen={autoOpen}
-        isCreditNote={isCreditNote}
-        onClose={onClose}
-      />
-    );
-  }
-
-  if (!invoice) {
-    return null;
-  }
 
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
+  const isAccountString = typeof accountProp === "string";
+  const accountId = isAccountString ? accountProp : accountProp?.id;
+
+  const {
+    data: fetchedAccount,
+    isLoading: accountLoading,
+    error: accountError,
+  } = useQuery({
+    queryKey: ["account", accountId],
+    queryFn: () => {
+      return apis.accounts.retrieve(facilityId, accountId!);
+    },
+    enabled: isAccountString && !!accountId,
+  });
+
+  const account = isAccountString ? fetchedAccount : (accountProp as Account);
+
+  // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
+  const [tenderedAmount, setTenderedAmount] = useState<string>("");
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
   );
@@ -123,11 +124,20 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amount =
-    Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
+  const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
 
+  const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^\d*\.?\d{0,2}$/;
+    if (regex.test(value) || value === "") {
+      setTenderedAmount(value);
+    }
+  };
+
+  // Define all callbacks and hooks before any conditional returns
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
+      if (!account) return;
       setSettledPr(pr);
       if (pr.outcome === PaymentReconciliationOutcome.complete) {
         toast.success(t("toast_payment_completed_successfully"));
@@ -137,14 +147,18 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         toast.warning(t("toast_payment_partially_completed"));
       }
 
+      // Invalidate queries to refresh account data
       queryClient.invalidateQueries({
-        queryKey: ["invoice", invoice.id],
+        queryKey: ["account", account.id],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["payments", account.id],
       });
       queryClient.invalidateQueries({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [invoice.id, queryClient, t]
+    [account?.id, queryClient, t]
   );
 
   const handleTimeout = useCallback(() => {
@@ -152,8 +166,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     toast.warning(t("toast_transaction_timed_out"));
   }, [t]);
 
+  // Poll for payment status
   const { pr: polledPr, isPolling } = usePaymentReconciliationStatus(prId, {
-    enabled: !!prId && !settledPr,
+    enabled: !!prId && !settledPr && !!account,
     onSettled: handleSettled,
     onTimeout: handleTimeout,
   });
@@ -169,12 +184,19 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const resetSheetState = useCallback(() => {
     setPaymentMethod(PAYMENT_METHODS[0].value);
     setSelectedTerminal(undefined);
+    setTenderedAmount("");
     setPrId(null);
     setSettledPr(null);
     setPollingTimedOut(false);
   }, []);
 
+  // Build payment payload for Pine Labs
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
+    if (!account) {
+    toast.error(t("error_account_not_found"));
+    return null;
+  }
+
     if (!selectedTerminal) {
       toast.error(t("error_please_select_terminal"));
       return null;
@@ -185,13 +207,15 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return null;
     }
 
+    const amount = parseFloat(tenderedAmount);
+
     if (!(amount > 0)) {
       toast.error(t("error_tendered_amount_must_be_positive"));
       return null;
     }
 
     const selectedMethodObj = PAYMENT_METHODS.find(
-      (m) => m.value === paymentMethod
+      (method) => method.value === paymentMethod
     );
 
     if (!selectedMethodObj) {
@@ -202,21 +226,22 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     return {
       terminal: selectedTerminal,
       payment_mode: selectedMethodObj.mode,
-      reconciliation_type: PaymentReconciliationType.payment,
+      reconciliation_type: PaymentReconciliationType.advance,
       kind: PaymentReconciliationKind.online,
       issuer_type: PaymentReconciliationIssuerType.patient,
       method: selectedMethodObj.method,
       tendered_amount: amount.toFixed(2),
       returned_amount: "0",
       is_credit_note: isCreditNote,
-      account: invoice.account.id,
-      target_invoice: invoice.id,
-      location: selectedLocation?.id,
+      account: account.id,
+      target_invoice: undefined,
+      location: selectedLocation.id,
       disposition: null,
       note: null,
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
+  }, [tenderedAmount, account?.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
 
+  // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
     onSuccess: (data) => {
@@ -235,6 +260,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     },
   });
 
+  // Cancel transaction
   const cancelTransactionMutation = useMutation({
     mutationFn: apis.gateway.cancel_transaction,
     onSuccess: () => {
@@ -265,9 +291,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     setIsOpen(false);
     resetSheetState();
     onClose?.();
+    onSuccess?.();
   };
 
   const handleOpenChange = (open: boolean) => {
+    // Prevent closing during transaction
     if (isTransactionInProgress || uploadTransactionMutation.isPending) {
       toast.warning(t("toast_wait_for_transaction"));
       return;
@@ -279,18 +307,21 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     }
   };
 
-
-  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
-
   const isFormStep =
     !showSuccess &&
     !showFailure &&
     !pollingTimedOut &&
     !isTransactionInProgress;
+
+  // Get the payment method label using the unique value
+  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
+
+  // Keyboard shortcuts using custom hook (following care_fe pattern)
+  // Shift+Enter: Send payment request
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !!selectedLocation && !uploadTransactionMutation.isPending,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !!selectedLocation && !!tenderedAmount && !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
@@ -305,22 +336,76 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     },
   });
 
+  // Show loading state while fetching account
+  if (isAccountString && accountLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2Icon className="h-6 w-6 animate-spin" />
+            <span>{t("loading")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if account fetch failed
+  if (accountError || (isAccountString && !account)) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-96">
+          <CardContent className="py-12 text-center space-y-4">
+            <p className="text-red-600">
+              {t("error_loading_account")}
+            </p>
+            {accountError && (
+              <p className="text-sm text-gray-500">{String(accountError)}</p>
+            )}
+            <Button onClick={() => onClose?.()} variant="outline">
+              {t("back")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Return null if account still not available
+  if (!account) {
+    return null;
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0" showCloseButton={!isTransactionInProgress && !uploadTransactionMutation.isPending}>
+      <SheetContent
+        className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
+        showCloseButton={
+          !isTransactionInProgress && !uploadTransactionMutation.isPending
+        }
+        onEscapeKeyDown={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
+            return;
+          }
+        }}
+        onInteractOutside={(e) => {
+          if (isTransactionInProgress || uploadTransactionMutation.isPending) {
+            e.preventDefault();
+            toast.warning(t("toast_wait_for_transaction"));
+            return;
+          }
+        }}
+      >
         <SheetHeader>
           <SheetTitle className="m-0">
             {t("receive_payment_via_pinelabs_terminal")}
           </SheetTitle>
           <SheetDescription className="text-gray-700">
-            {t("recording_payment_for_invoice", {
-              invoiceNumber: invoice.number
-            })}
-
+            {t("recording_payment_for_account")}
           </SheetDescription>
         </SheetHeader>
-
         {isFormStep && (
           <div className="pt-4">
             <button
@@ -348,17 +433,17 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <FailureView
                   pr={livePr}
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                 />
               ) : pollingTimedOut ? (
                 <TimedOutView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                 />
               ) : (
                 <InProgressView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={amountDue}
                   isPolling={isPolling}
                 />
               )}
@@ -367,8 +452,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
             <div className="space-y-6">
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 space-y-3">
                 <div className="flex text-sm justify-center text-gray-700">
-                  {t("invoice_total")}
-                  <p className="font-bold ml-1">{formatCurrency(invoice.total_gross)}</p>
+                  {t("account")}:
+                  <p className="font-bold ml-1">{account.name}</p>
                 </div>
 
                 <div className="bg-white p-3 text-center">
@@ -376,10 +461,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                     {t("amount_due")}
                   </p>
                   <p className="text-3xl font-bold text-gray-900">
-                    {formatCurrency(amount)}
+                    {formatCurrency(amountDue)}
                   </p>
                 </div>
 
+                {/* Decorative divider - Same as invoice sheet */}
                 <div
                   className="h-4 w-full bg-repeat-x -mt-4"
                   style={{
@@ -389,17 +475,19 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   }}
                 />
               </div>
+
+              {/* Dynamic Warning with Amount and Payment Method */}
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2.5">
                 <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 leading-relaxed">
                   {t("payment_warning_message", {
-                    amount: formatCurrency(amount),
+                    amount: formatCurrency(parseFloat(tenderedAmount) || 0),
                     paymentMethod: currentPaymentMethodLabel,
                   })}
                 </p>
               </div>
 
-              {/* Payment Method */}
+              {/* Payment Method Selection - Grid layout like invoice sheet */}
               <div className="space-y-2">
                 <Label className="text-gray-950">{t("payment_method")}</Label>
                 <RadioGroup
@@ -412,9 +500,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                     return (
                       <Label
                         key={method.value}
-                        className="relative flex cursor-pointer flex-col items-center 
-                                  rounded-md border border-gray-400 shadow-sm p-2.5 
-                                  outline-none has-checked:border-primary-600 has-checked:bg-green-50"
+                        className="relative flex cursor-pointer flex-col items-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-green-50"
                       >
                         <RadioGroupItem
                           value={method.value}
@@ -432,9 +518,34 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   })}
                 </RadioGroup>
               </div>
+              {/* Advance Amount Input */}
+              <div className="space-y-2">
+                <Label className="text-gray-950">
+                {t("advance_amount")}
+                </Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
+                    ₹
+                  </span>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={tenderedAmount}
+                    onChange={handleTenderedAmountChange}
+                    className="w-full pl-8"
+                  />
+                </div>
+                {tenderedAmount && (
+                  <p className="text-xs text-gray-500">
+                    {t("amount")}: {formatCurrency(parseFloat(tenderedAmount) || 0)}
+                  </p>
+                )}
+              </div>
 
               {/* Location Selection */}
-              <div className="space-y-2">
+
+              <div className="space-y-2 ">
                 <Label className="text-gray-950">{t("location")}</Label>
                 <LocationPicker
                   facilityId={facilityId}
@@ -442,6 +553,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   onValueChange={setSelectedLocation}
                   placeholder={t("select_location")}
                   className="w-full"
+                  data-state="open"
                 />
               </div>
 
@@ -477,31 +589,31 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               {t("cancel_transaction")}
             </Button>
           ) : (
-            <div className="flex flex-col gap-3 w-full">
-              <div className="flex justify-between gap-3 w-full">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsOpen(false);
-                    resetSheetState();
-                    onClose?.();
-                  }}
-                >
-                  {t("cancel")}
-                  <ShortcutBadge shortcut="ESC" />
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleCollectPayment}
-                  disabled={!selectedTerminal || !selectedLocation ||uploadTransactionMutation.isPending}
-                  loading={uploadTransactionMutation.isPending}
-                  aria-keyshortcuts="Shift+Enter"
-                >
-                  {t("send_payment_request")}
-                  <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
-                </Button>
-              </div>
+            <div className="flex justify-between gap-3 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsOpen(false);
+                  resetSheetState();
+                  onClose?.();
+                }}
+                className="gap-2"
+                aria-keyshortcuts="Escape"
+              >
+                {t("cancel")}
+                <ShortcutBadge shortcut="ESC" />
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleCollectPayment}
+                disabled={!selectedTerminal || !selectedLocation || !tenderedAmount || uploadTransactionMutation.isPending}
+                loading={uploadTransactionMutation.isPending}
+                aria-keyshortcuts="Shift+Enter"
+              >
+                {t("send_payment_request")}
+                <ShortcutBadge shortcut="⇧ ↵" variant="primary" />
+              </Button>
             </div>
           )}
         </SheetFooter>
@@ -510,6 +622,4 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   );
 };
 
-export default PaymentSheet;
-
-
+export default PineLabsAccountPayment;

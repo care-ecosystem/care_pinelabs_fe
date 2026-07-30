@@ -17,6 +17,7 @@ import { Invoice } from "@/types/invoice";
 
 import { PaginatedResponse } from "@/apis/types";
 import { request, queryString } from "@/apis/request";
+import { Account } from "@/types/account";
 
 export const apis = {
   invoices: {
@@ -65,6 +66,13 @@ export const apis = {
 
       return await request<PaginatedResponse<LocationRead>>(
         `/api/v1/facility/${facilityId}/location/${queryString(cleanParams)}`,
+      );
+    },
+  },
+  accounts: {
+    retrieve: (facilityId: string, accountId: string) => {
+      return request<Account>(
+        `/api/v1/facility/${facilityId}/account/${accountId}/` 
       );
     },
   },
