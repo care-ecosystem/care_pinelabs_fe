@@ -137,6 +137,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   // Define all callbacks and hooks before any conditional returns
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
+      if (!account) return;
       setSettledPr(pr);
       if (pr.outcome === PaymentReconciliationOutcome.complete) {
         toast.success(t("toast_payment_completed_successfully"));
@@ -191,6 +192,11 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
 
   // Build payment payload for Pine Labs
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
+    if (!account) {
+    toast.error(t("error_account_not_found"));
+    return null;
+  }
+
     if (!selectedTerminal) {
       toast.error(t("error_please_select_terminal"));
       return null;
