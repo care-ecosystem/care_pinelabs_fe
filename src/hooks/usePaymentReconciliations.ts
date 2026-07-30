@@ -10,10 +10,11 @@ export const usePaymentReconciliations = (
   facilityId: string,
   filters: TransactionFilters,
   pagination: { offset: number; limit: number },
+  ordering: string = "-payment_datetime",
 ) => {
   const params: TransactionListParams = {
     ...pagination,
-    ordering: "-payment_datetime",
+    ordering,
   };
 
   if (filters.dateFrom) {

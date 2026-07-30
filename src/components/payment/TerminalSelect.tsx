@@ -34,7 +34,7 @@ export const TerminalSelect: FC<TerminalSelectProps> = ({
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger>
+      <SelectTrigger className="w-full">
         <SelectValue placeholder="Select the POS Terminal" />
       </SelectTrigger>
       <SelectContent>
