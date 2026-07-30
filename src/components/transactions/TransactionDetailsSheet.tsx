@@ -18,7 +18,7 @@ import { formatCurrency, toast } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apis } from "@/apis";
-import { Loader2Icon, RefreshCwIcon } from "lucide-react";
+import { Loader2Icon, RefreshCwIcon, XIcon } from "lucide-react";
 import { MetaTable } from "./MetaTable";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 
@@ -95,10 +95,39 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
     },
   });
 
+  // Cancel transaction mutation
+  const cancelTransactionMutation = useMutation({
+    mutationFn: apis.gateway.cancel_transaction,
+    onSuccess: () => {
+      toast.success(t("toast_transaction_cancelled"));
+      // Invalidate and refetch queries
+      queryClient.invalidateQueries({
+        queryKey: ["transaction_status", transactionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["payment_reconciliations"],
+      });
+      refetch();
+    },
+    onError: (error: unknown) => {
+      toast.error(
+        getPinelabsErrorMessage(error, t("error_failed_to_cancel_transaction")),
+      );
+    },
+  });
+
   const handleRefreshStatus = () => {
     if (!transactionId) return;
     refreshStatusMutation.mutate({ payment_reconciliation: transactionId });
   };
+
+  const handleCancelTransaction = () => {
+    if (!transactionId) return;
+    cancelTransactionMutation.mutate({ payment_reconciliation: transactionId });
+  };
+
+  // Check if transaction is in progress (queued status)
+  const isInProgress = transaction?.outcome === PaymentReconciliationOutcome.queued;
 
   if (!transactionId) return null;
 
@@ -125,14 +154,15 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
           </SheetDescription>
         </SheetHeader>
 
-        {/* Refresh Button */}
+        {/* Action Buttons */}
         {transaction && (
-          <div className="py-4">
+          <div className="py-4 space-y-3">
+            {/* Refresh Button - Always show */}
             <Button
               variant="outline"
               size="sm"
               onClick={handleRefreshStatus}
-              disabled={refreshStatusMutation.isPending}
+              disabled={refreshStatusMutation.isPending || cancelTransactionMutation.isPending}
               className="w-full"
             >
               <RefreshCwIcon
@@ -140,6 +170,22 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
               />
               {t("refresh_status_from_pinelabs")}
             </Button>
+
+            {/* Cancel Button - Only show for in-progress transactions */}
+            {isInProgress && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleCancelTransaction}
+                disabled={cancelTransactionMutation.isPending || refreshStatusMutation.isPending}
+                className="w-full"
+              >
+                <XIcon className="h-4 w-4 mr-2" />
+                {cancelTransactionMutation.isPending
+                  ? t("cancelling_transaction")
+                  : t("cancel_transaction")}
+              </Button>
+            )}
           </div>
         )}
 
