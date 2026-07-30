@@ -33,31 +33,39 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold">{t("pinelabs_transactions")}</h1>
-          <Badge variant="secondary" className="text-base px-3 py-1">
-            {totalCount}
-          </Badge>
+    <div className="w-full md:px-6 py-0">
+      <div className="mt-3 mb-4">
+        <div className="flex items-center justify-between px-3 md:px-0">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-gray-700 mb-2">
+                {t("pinelabs_transactions")}
+              </h1>
+              <Badge variant="secondary" className="text-base px-3 py-1">
+                {totalCount}
+              </Badge>
+            </div>
+            <p className="text-gray-600 text-sm">
+              {t("pinelabs_transactions_description")}
+            </p>
+          </div>
         </div>
-        <p className="text-gray-600">
-          {t("pinelabs_transactions_description")}
-        </p>
+
+        <div className="px-3 md:px-0 mt-4 space-y-4">
+          <TransactionFilters
+            facilityId={facilityId}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+
+          <TransactionsTable
+            facilityId={facilityId}
+            filters={filters}
+            onRowClick={handleRowClick}
+            onCountChange={handleCountChange}
+          />
+        </div>
       </div>
-
-      <TransactionFilters
-        facilityId={facilityId}
-        filters={filters}
-        onFiltersChange={setFilters}
-      />
-
-      <TransactionsTable
-        facilityId={facilityId}
-        filters={filters}
-        onRowClick={handleRowClick}
-        onCountChange={handleCountChange}
-      />
 
       <TransactionDetailsSheet
         open={detailsOpen}
