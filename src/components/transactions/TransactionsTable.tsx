@@ -1,4 +1,4 @@
-import { FC, useState, useEffect } from "react";
+import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
@@ -35,11 +35,15 @@ import {
 type TransactionsTableProps = {
   facilityId: string;
   filters: TransactionFilters;
+  page: number;
+  ordering: string;
+  onPageChange: (page: number) => void;
+  onOrderingChange: (ordering: string) => void;
   onRowClick: (transactionId: string) => void;
   onCountChange?: (count: number) => void;
 };
 
-const ITEMS_PER_PAGE = 20;
+export const ITEMS_PER_PAGE = 20;
 const COLUMN_COUNT = 8;
 
 const SORT_OPTIONS: Record<string, string> = {
@@ -77,12 +81,14 @@ const TableSkeleton = () => (
 export const TransactionsTable: FC<TransactionsTableProps> = ({
   facilityId,
   filters,
+  page,
+  ordering,
+  onPageChange,
+  onOrderingChange,
   onRowClick,
   onCountChange,
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
-  const [page, setPage] = useState(0);
-  const [ordering, setOrdering] = useState("-payment_datetime");
 
   const { data, isLoading, error } = usePaymentReconciliations(
     facilityId,
@@ -117,8 +123,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         <Select
           value={ordering}
           onValueChange={(value) => {
-            setOrdering(value);
-            setPage(0);
+            onOrderingChange(value);
           }}
         >
           <SelectTrigger
@@ -273,7 +278,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(page - 1)}
+              onClick={() => onPageChange(page - 1)}
               disabled={!hasPrevious}
             >
               <ChevronLeftIcon className="h-4 w-4" />
@@ -282,7 +287,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setPage(page + 1)}
+              onClick={() => onPageChange(page + 1)}
               disabled={!hasNext}
             >
               {t("next")}
