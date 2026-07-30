@@ -121,7 +121,10 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             setPage(0);
           }}
         >
-          <SelectTrigger className="border-gray-400 text-gray-950 rounded-sm">
+          <SelectTrigger
+            aria-label={t("sort_by")}
+            className="border-gray-400 text-gray-950 rounded-sm"
+          >
             <SelectValue placeholder={t("sort_by")} />
           </SelectTrigger>
           <SelectContent align="end">
