@@ -137,46 +137,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     }
   };
 
-  // Show loading state while fetching account
-  if (!isAccountString && accountLoading) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6">
-          <div className="flex items-center justify-center gap-2">
-            <Loader2Icon className="h-6 w-6 animate-spin" />
-            <span>{t("loading")}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state if account fetch failed
-  if (accountError || (!isAccountString && !account)) {
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <Card className="w-96">
-          <CardContent className="py-12 text-center space-y-4">
-            <p className="text-red-600">
-              {t("error_loading_account")}
-            </p>
-            {accountError && (
-              <p className="text-sm text-gray-500">{String(accountError)}</p>
-            )}
-            <Button onClick={() => onClose?.()} variant="outline">
-              {t("back")}
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Return null if account still not available
-  if (!account) {
-    return null;
-  }
-
+  // Define all callbacks and hooks before any conditional returns
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
@@ -199,7 +160,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [account.id, queryClient, t]
+    [account?.id, queryClient, t]
   );
 
   const handleTimeout = useCallback(() => {
@@ -209,7 +170,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
 
   // Poll for payment status
   const { pr: polledPr, isPolling } = usePaymentReconciliationStatus(prId, {
-    enabled: !!prId && !settledPr,
+    enabled: !!prId && !settledPr && !!account,
     onSettled: handleSettled,
     onTimeout: handleTimeout,
   });
@@ -238,7 +199,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       return null;
     }
 
-    const amount = parseFloat(tenderedAmount);  
+    if (!selectedLocation) {
+      toast.error(t("error_please_select_location"));
+      return null;
+    }
+
+    const amount = parseFloat(tenderedAmount);
 
     if (!(amount > 0)) {
       toast.error(t("error_tendered_amount_must_be_positive"));
@@ -266,11 +232,11 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       is_credit_note: isCreditNote,
       account: account.id,
       target_invoice: undefined,
-      location: selectedLocation?.id ?? null,
+      location: selectedLocation.id,
       disposition: null,
       note: null,
     };
-  }, [tenderedAmount, account.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
+  }, [tenderedAmount, account?.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
 
   // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
@@ -321,6 +287,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const handleCloseAfterTerminal = () => {
     setIsOpen(false);
     resetSheetState();
+    onClose?.();
     onSuccess?.();
   };
 
@@ -351,7 +318,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !!tenderedAmount && !uploadTransactionMutation.isPending,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !!selectedLocation && !!tenderedAmount && !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
@@ -365,6 +332,46 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       onClose?.();
     },
   });
+
+  // Show loading state while fetching account
+  if (isAccountString && accountLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6">
+          <div className="flex items-center justify-center gap-2">
+            <Loader2Icon className="h-6 w-6 animate-spin" />
+            <span>{t("loading")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if account fetch failed
+  if (accountError || (isAccountString && !account)) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <Card className="w-96">
+          <CardContent className="py-12 text-center space-y-4">
+            <p className="text-red-600">
+              {t("error_loading_account")}
+            </p>
+            {accountError && (
+              <p className="text-sm text-gray-500">{String(accountError)}</p>
+            )}
+            <Button onClick={() => onClose?.()} variant="outline">
+              {t("back")}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Return null if account still not available
+  if (!account) {
+    return null;
+  }
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -607,7 +614,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
-                disabled={!selectedTerminal || !tenderedAmount || uploadTransactionMutation.isPending}
+                disabled={!selectedTerminal || !selectedLocation || !tenderedAmount || uploadTransactionMutation.isPending}
                 loading={uploadTransactionMutation.isPending}
                 aria-keyshortcuts="Shift+Enter"
               >
