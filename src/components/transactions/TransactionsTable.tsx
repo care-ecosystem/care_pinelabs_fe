@@ -192,15 +192,19 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               >
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   {transaction.account ? (
-                    <a
-                      href={`/facility/${facilityId}/billing/account/${transaction.account.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
-                    >
-                      {transaction.account.name}
-                      <ExternalLinkIcon className="h-3 w-3" />
-                    </a>
+                    <Button variant="link" asChild>
+                      <a
+                        href={`/facility/${facilityId}/billing/account/${transaction.account.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary"
+                      >
+                        <div className="text-base flex items-center gap-1 underline underline-offset-2">
+                          {transaction.account.name}
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </div>
+                      </a>
+                    </Button>
                   ) : (
                     "-"
                   )}
@@ -214,15 +218,17 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   {transaction.target_invoice ? (
-                    <a
-                      href={`/facility/${facilityId}/billing/invoices/${transaction.target_invoice.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
-                    >
-                      {transaction.target_invoice.number}
-                      <ExternalLinkIcon className="h-3 w-3" />
-                    </a>
+                    <Button variant="link" asChild>
+                      <a
+                        href={`/facility/${facilityId}/billing/invoices/${transaction.target_invoice.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
+                      >
+                        {transaction.target_invoice.number}
+                        <ExternalLinkIcon className="h-3 w-3" />
+                      </a>
+                    </Button>
                   ) : (
                     "-"
                   )}
@@ -240,7 +246,10 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                     : "NA"}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={getStatusBadgeVariant(transaction.outcome)}>
+                  <Badge
+                    variant={getStatusBadgeVariant(transaction.outcome)}
+                    className="px-2.5 py-px text-sm font-medium"
+                  >
                     {t(`status_${transaction.outcome}`)}
                   </Badge>
                 </TableCell>
