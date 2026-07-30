@@ -10,7 +10,7 @@ const manifest = {
     {
       component: "PaymentReconciliationSheet",
       replacement: PaymentReconciliationSheetOverride,
-      priority: 0,
+      priority: 10,
     },
   ],
   components: {
