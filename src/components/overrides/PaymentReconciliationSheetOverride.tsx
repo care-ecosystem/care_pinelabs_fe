@@ -2,19 +2,33 @@ import { useEffect, useState } from "react";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { Invoice } from "@/types/invoice";
-// import { Account } from "@/types/account";
+import { Account } from "@/types/account";
 
 export interface PaymentReconciliationSheetOverrideProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   facilityId: string;
   invoice?: Invoice;
-  // account?: string;
+  account?: Account | string;
   accountId: string;
   isCreditNote?: boolean;
-  amount: string;
   __base?: React.ComponentType<PaymentReconciliationSheetOverrideProps>;
 }
+
+const cleanupModalStyles = () => {
+  document.documentElement.style.pointerEvents = "auto";
+  document.body.style.pointerEvents = "auto";
+  const blockedElements = document.querySelectorAll(
+    '[style*="pointer-events"]'
+  );
+  blockedElements.forEach((el) => {
+    const element = el as HTMLElement;
+    if (element.style.pointerEvents === "none") {
+      element.style.pointerEvents = "auto";
+      console.log("[Override] Fixed pointer-events on element:", el);
+    }
+  });
+};
 
 const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOverrideProps) => {
 
@@ -76,21 +90,9 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           onOpenChange={(open: boolean) => {
             if (!open) {
               removeUrlParam("mode");
-            }
-            props.onOpenChange(open);
-          }}
-        />
-      );
-    }
-    if (props.isCreditNote && props.__base) {
-      const NativeComponent = props.__base;
-
-      return (
-        <NativeComponent
-          {...props}
-          onOpenChange={(open: boolean) => {
-            if (!open) {
-              removeUrlParam("mode");
+              setTimeout(() => {
+                cleanupModalStyles();
+              }, 0);
             }
             props.onOpenChange(open);
           }}
@@ -115,13 +117,17 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           }}
           onClose={() => {
             removeUrlParam("mode");
+            setTimeout(() => {
+              cleanupModalStyles();
+            }, 0);
+
             props.onOpenChange(false);
           }}
         />
       );
     }
 
-    if (props.accountId) {
+    if (props.account || props.accountId) {
       if (!urlMode && isInitialized) {
         setUrlParam("mode", "pinelabs");
       }
@@ -129,7 +135,7 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       return (
         <PineLabsAccountPayment
           facilityId={props.facilityId}
-          account={props.accountId}
+          account={props.account ?? props.accountId}
           autoOpen={true}
           isCreditNote={props.isCreditNote}
           onSwitchToManual={() => {
@@ -137,6 +143,9 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           }}
           onClose={() => {
             removeUrlParam("mode");
+            setTimeout(() => {
+              cleanupModalStyles();
+            }, 0);
             props.onOpenChange(false);
           }}
         />

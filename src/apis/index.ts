@@ -18,7 +18,6 @@ import { Invoice } from "@/types/invoice";
 import { PaginatedResponse } from "@/apis/types";
 import { request, queryString } from "@/apis/request";
 import { Account } from "@/types/account";
-import { Device, DeviceListParams } from "@/types/device"
 
 export const apis = {
   invoices: {
@@ -112,27 +111,6 @@ export const apis = {
         {
           method: "DELETE",
         },
-      );
-    },
-  },
-    devices: {
-    list: async (
-      facilityId: string,
-      params: DeviceListParams = {},
-    ) => {
-      const cleanParams = Object.fromEntries(
-        Object.entries(params).filter(
-          ([, value]) => value !== undefined && value !== null && value !== "",
-        ),
-      ) as Record<string, string | number>;
- 
-      return await request<PaginatedResponse<Device>>(
-        `/api/v1/facility/${facilityId}/device/${queryString(cleanParams)}`,
-      );
-    },
-    retrieve: async (facilityId: string, deviceId: string) => {
-      return await request<Device>(
-        `/api/v1/facility/${facilityId}/device/${deviceId}/`,
       );
     },
   },
