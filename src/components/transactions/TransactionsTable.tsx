@@ -4,6 +4,13 @@ import { I18NNAMESPACE } from "@/lib/constants";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { usePaymentReconciliations } from "@/hooks/usePaymentReconciliations";
 import { TransactionFilters } from "@/types/transaction_filters";
 import {
@@ -28,6 +35,13 @@ type TransactionsTableProps = {
 
 const ITEMS_PER_PAGE = 20;
 
+const SORT_OPTIONS: Record<string, string> = {
+  "-payment_datetime": "sort_by_latest_payment",
+  payment_datetime: "sort_by_oldest_payment",
+  "-created_date": "sort_by_latest_created",
+  created_date: "sort_by_oldest_created",
+};
+
 export const TransactionsTable: FC<TransactionsTableProps> = ({
   facilityId,
   filters,
@@ -36,11 +50,13 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const [page, setPage] = useState(0);
+  const [ordering, setOrdering] = useState("-payment_datetime");
 
   const { data, isLoading, error } = usePaymentReconciliations(
     facilityId,
     filters,
     { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
+    ordering,
   );
 
   // Update parent with count when data changes
@@ -91,6 +107,28 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   return (
     <Card>
       <CardContent className="p-0">
+        <div className="flex justify-end p-4">
+          <div className="w-full sm:w-fit">
+            <Select
+              value={ordering}
+              onValueChange={(value) => {
+                setOrdering(value);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="border-gray-400 text-gray-950 rounded-sm">
+                <SelectValue placeholder={t("sort_by")} />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {Object.entries(SORT_OPTIONS).map(([value, text]) => (
+                  <SelectItem key={text} value={value}>
+                    {t(text)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
