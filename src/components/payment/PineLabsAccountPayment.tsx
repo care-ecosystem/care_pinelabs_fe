@@ -1,4 +1,4 @@
-import { CreditCard, Link2Icon, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
+import { CreditCard, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
 import { FC, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -15,7 +15,6 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 import { apis } from "@/apis";
@@ -54,7 +53,6 @@ export type PineLabsAccountPaymentProps = {
   isCreditNote?: boolean;
   onClose?: () => void;
   onSuccess?: () => void;
-  showTrigger?: boolean;
   onSwitchToManual?: () => void;
 };
 
@@ -87,7 +85,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   isCreditNote = false,
   onClose,
   onSuccess,
-  showTrigger = true,
   onSwitchToManual,
 }) => {
 
@@ -375,16 +372,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
-      {showTrigger && (
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full justify-start">
-            <Link2Icon className="h-4 w-4" />
-            {isCreditNote
-              ? t("record_credit_note_via_pinelabs")
-              : t("receive_payment_via_pinelabs_terminal")}
-          </Button>
-        </SheetTrigger>
-      )}
       <SheetContent
         className="w-full max-w-md sm:max-w-lg overflow-y-auto pb-0"
         showCloseButton={
@@ -528,7 +515,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               {/* Advance Amount Input */}
               <div className="space-y-2">
                 <Label className="text-gray-950">
-                  {isCreditNote ? t("record_credit_note_amount") : t("advance_amount")}
+                {t("advance_amount")}
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
@@ -551,7 +538,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               </div>
 
               {/* Location Selection */}
-              
+
               <div className="space-y-2 ">
                 <Label className="text-gray-950">{t("location")}</Label>
                 <LocationPicker

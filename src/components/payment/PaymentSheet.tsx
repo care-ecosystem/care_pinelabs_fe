@@ -180,6 +180,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return null;
     }
 
+    if (!selectedLocation) {
+      toast.error(t("error_please_select_location"));
+      return null;
+    }
+
     if (!(amount > 0)) {
       toast.error(t("error_tendered_amount_must_be_positive"));
       return null;
@@ -203,14 +208,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       method: selectedMethodObj.method,
       tendered_amount: amount.toFixed(2),
       returned_amount: "0",
-      is_credit_note: false,
+      is_credit_note: isCreditNote,
       account: invoice.account.id,
       target_invoice: invoice.id,
-      location: selectedLocation?.id ?? null,
+      location: selectedLocation?.id,
       disposition: null,
       note: null,
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, t]);
+  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -285,7 +290,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !uploadTransactionMutation.isPending,
+    enabled: isOpen && isFormStep && !!selectedTerminal && !!selectedLocation && !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
@@ -378,7 +383,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <div
                   className="h-4 w-full bg-repeat-x -mt-4"
                   style={{
+<<<<<<< HEAD
                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='10.4' height='12' viewBox='2 3 10.4 9' xmlns='http://www.w3.org/2000/svg'%3E%3Cg filter='url(%23filter0_dd_31940_236060)'%3E%3Cpath d='M7.19629 12L12.3924 3H2.00014L7.19629 12Z' fill='white'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='filter0_dd_31940_236060' x='-0.803711' y='-1' width='16' height='16' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeFlood flood-opacity='0' result='BackgroundImageFix'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='1'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'/%3E%3CfeBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_31940_236060'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='0.5'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3CfeBlend mode='normal' in2='effect1_dropShadow_31940_236060' result='effect2_dropShadow_31940_236060'/%3E%3CfeBlend mode='normal' in='SourceGraphic' in2='effect2_dropShadow_31940_236060' result='shape'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E")`,
+=======
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='10.4' height='12' viewBox='2 3 10.4 9' xmlns='http://www.w3.org/2000/svg'%3E%3Cg filter='url(%23filter0_dd_31940_236060)'%3E%3Cpath d='M7.19629 12L12.3924 3H2.00014L7.19629 12Z' fill='white'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='filter0_dd_31940_236060' x='-0.803711' y='-1' width='16' height='16' filterUnits='userSpaceOnUse' color-interpolation-filters='sRGB'%3E%3CfeFlood flood-opacity='0' result='BackgroundImageFix'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='1'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'/%3E%3CfeBlend mode='normal' in2='BackgroundImageFix' result='effect1_dropShadow_31940_236060'/%3E%3CfeColorMatrix in='SourceAlpha' type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0' result='hardAlpha'/%3E%3CfeOffset dy='1'/%3E%3CfeGaussianBlur stdDeviation='0.5'/%3E%3CfeComposite in2='hardAlpha' operator='out'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3CfeBlend mode='normal' in2='effect2_dropShadow_31940_236060' result='shape'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E")`,
+>>>>>>> 0b6714b (fix: use native credit note page, remove sheet trigger, add location error toast)
                     backgroundSize: "10.4px 12px",
                     backgroundPosition: "center",
                   }}
@@ -489,7 +498,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <Button
                   variant="primary"
                   onClick={handleCollectPayment}
-                  disabled={!selectedTerminal || uploadTransactionMutation.isPending}
+                  disabled={!selectedTerminal || !selectedLocation ||uploadTransactionMutation.isPending}
                   loading={uploadTransactionMutation.isPending}
                   aria-keyshortcuts="Shift+Enter"
                 >

@@ -99,6 +99,21 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
         />
       );
     }
+    if (props.isCreditNote && props.__base) {
+      const NativeComponent = props.__base;
+
+      return (
+        <NativeComponent
+          {...props}
+          onOpenChange={(open: boolean) => {
+            if (!open) {
+              removeUrlParam("mode");
+            }
+            props.onOpenChange(open);
+          }}
+        />
+      );
+    }
 
     if (props.invoice) {
       if (!urlMode && isInitialized) {

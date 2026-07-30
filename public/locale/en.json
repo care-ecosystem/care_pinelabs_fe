@@ -73,6 +73,7 @@
   "refresh_status_from_pinelabs": "Refresh Status from Pinelabs",
 
   "error_please_select_terminal": "Please select a terminal",
+  "error_please_select_location": "Please select a location",
   "error_account_required": "Account is required to record a payment",
   "error_payment_method_required": "Payment method is required",
   "error_tendered_amount_must_be_positive": "Tendered amount must be greater than zero",
@@ -88,6 +89,7 @@
   "back": "Back",
   "back_to_invoice": "Back to Invoice",
   "error_loading_invoice": "Failed to load invoice. Please try again.",
+  "error_loading_account": "Failed to load account. Please try again.",
   "date": "Date",
   "date_time": "Date & Time",
   "select_date_range": "Select date range",
@@ -146,7 +148,6 @@
   "reconciliation_type_advance": "Advance",
   "advance_amount": "Advance Payment Amount",
   "kind_deposit": "Deposit",
-  "record_credit_note_amount": "Credit Note Amount",
   "kind_preriodic_payment": "Periodic Payment",
   "kind_online": "Online",
   "kind_kiosk": "Kiosk"
