@@ -13,13 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { usePaymentReconciliations } from "@/hooks/usePaymentReconciliations";
 import { TransactionFilters } from "@/types/transaction_filters";
 import { PaymentReconciliationOutcome } from "@/types/payment_reconciliation";
@@ -38,20 +31,12 @@ type TransactionsTableProps = {
   page: number;
   ordering: string;
   onPageChange: (page: number) => void;
-  onOrderingChange: (ordering: string) => void;
   onRowClick: (transactionId: string) => void;
   onCountChange?: (count: number) => void;
 };
 
 export const ITEMS_PER_PAGE = 20;
 const COLUMN_COUNT = 8;
-
-const SORT_OPTIONS: Record<string, string> = {
-  "-payment_datetime": "sort_by_latest_payment",
-  payment_datetime: "sort_by_oldest_payment",
-  "-created_date": "sort_by_latest_created",
-  created_date: "sort_by_oldest_created",
-};
 
 const TableSkeleton = () => (
   <Table>
@@ -84,7 +69,6 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   page,
   ordering,
   onPageChange,
-  onOrderingChange,
   onRowClick,
   onCountChange,
 }) => {
@@ -117,40 +101,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     }
   };
 
-  const sortSelect = (
-    <div className="flex justify-end mb-4">
-      <div className="w-full sm:w-fit">
-        <Select
-          value={ordering}
-          onValueChange={(value) => {
-            onOrderingChange(value);
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("sort_by")}
-            className="border-gray-400 text-gray-950 rounded-sm"
-          >
-            <SelectValue placeholder={t("sort_by")} />
-          </SelectTrigger>
-          <SelectContent align="end">
-            {Object.entries(SORT_OPTIONS).map(([value, text]) => (
-              <SelectItem key={text} value={value}>
-                {t(text)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  );
-
   if (isLoading) {
-    return (
-      <div>
-        {sortSelect}
-        <TableSkeleton />
-      </div>
-    );
+    return <TableSkeleton />;
   }
 
   if (error) {
@@ -167,8 +119,6 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
 
   return (
     <div>
-      {sortSelect}
-
       {transactions.length === 0 ? (
         <EmptyState
           icon={<CreditCardIcon className="text-primary size-6" />}
@@ -180,7 +130,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             <TableRow>
               <TableHead>{t("account")}</TableHead>
               <TableHead>{t("payment_initiated_date_time")}</TableHead>
-              <TableHead>{t("invoice_number")}</TableHead>
+              <TableHead>{t("invoice")}</TableHead>
               <TableHead>{t("payment_method")}</TableHead>
               <TableHead>{t("amount")}</TableHead>
               <TableHead>{t("reference_number")}</TableHead>
@@ -230,7 +180,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                         rel="noopener noreferrer"
                         className="hover:text-primary underline underline-offset-2 inline-flex items-center gap-1"
                       >
-                        {transaction.target_invoice.number}
+                        {transaction.target_invoice.number || t("view_invoice")}
                         <ExternalLinkIcon className="h-3 w-3" />
                       </a>
                     </Button>

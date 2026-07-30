@@ -7,6 +7,7 @@ import {
   ITEMS_PER_PAGE,
 } from "@/components/transactions/TransactionsTable";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
+import { TransactionSort } from "@/components/transactions/TransactionSort";
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
@@ -31,9 +32,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const [totalCount, setTotalCount] = useState(0);
 
   const filters: Filters = {
-    method:
-      (qParams.method as PaymentReconciliationPaymentMethod) ||
-      PaymentReconciliationPaymentMethod.ddpo,
+    method: (qParams.method as PaymentReconciliationPaymentMethod) || "",
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
     createdBy: qParams.created_by || "",
@@ -121,11 +120,18 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         </div>
 
         <div className="px-3 md:px-0 mt-4 space-y-4">
-          <TransactionFilters
-            facilityId={facilityId}
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-          />
+          <div className="flex flex-col sm:flex-row justify-between gap-2">
+            <TransactionFilters
+              facilityId={facilityId}
+              filters={filters}
+              onFiltersChange={handleFiltersChange}
+            />
+
+            <TransactionSort
+              ordering={ordering}
+              onOrderingChange={handleOrderingChange}
+            />
+          </div>
 
           <TransactionsTable
             facilityId={facilityId}
@@ -133,7 +139,6 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
             page={page}
             ordering={ordering}
             onPageChange={handlePageChange}
-            onOrderingChange={handleOrderingChange}
             onRowClick={handleRowClick}
             onCountChange={handleCountChange}
           />
