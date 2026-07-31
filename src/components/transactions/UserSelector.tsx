@@ -71,7 +71,9 @@ export const UserSelector: FC<UserSelectorProps> = ({
                 name={formatUserName(selectedUser)}
                 className="size-6 rounded-full shrink-0"
               />
-              <span className="truncate">{formatUserName(selectedUser)}</span>
+              <span className="truncate text-gray-950">
+                {formatUserName(selectedUser)}
+              </span>
             </div>
           ) : (
             <span className="text-gray-500">{t("filter_by_user")}</span>

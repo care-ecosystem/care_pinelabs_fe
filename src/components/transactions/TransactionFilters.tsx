@@ -359,7 +359,10 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             });
           }}
         >
-          <SelectTrigger className="w-full" aria-label={t("payment_method")}>
+          <SelectTrigger
+            className="w-full text-gray-950"
+            aria-label={t("payment_method")}
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
