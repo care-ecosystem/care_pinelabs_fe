@@ -1,12 +1,13 @@
 import { FC, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   PINELABS_FIELDS,
   STATUS_FIELDS,
   TRANSACTION_DATA_FIELDS,
-  UPLOAD_FIELDS,
   PAYMENT_MODE_LABELS,
 } from "@/lib/pinelabsMetaConfig";
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { I18NNAMESPACE } from "@/lib/constants";
 
 type MetaTableProps = {
   data: Record<string, unknown>;
@@ -20,6 +21,7 @@ type Section = {
 };
 
 export const MetaTable: FC<MetaTableProps> = ({ data }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(
     new Set(),
   );
@@ -57,6 +59,18 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
   };
 
   const formatKey = (key: string): string => {
+    // Convert key to uppercase with underscores for locale key
+    const localeKey = `PLUTUS_RESPONSE_${key.toUpperCase()}`;
+
+    // Try to get translation first
+    const translated = t(localeKey);
+
+    // If translation exists (not equal to the key), use it
+    if (translated !== localeKey) {
+      return translated;
+    }
+
+    // Fallback to original formatting logic if no translation exists
     // Special case for upload_response_message
     if (key === "upload_response_message") {
       return "Upload Status";
@@ -165,10 +179,10 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-b border-gray-200">
-                Field
+                {t("field")}
               </th>
               <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-b border-gray-200">
-                Value
+                {t("value")}
               </th>
             </tr>
           </thead>
@@ -207,9 +221,9 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
           row.key === "upload_response_message",
       );
     } else if (section.title === "Status") {
-      // Show only TID and TransactionLogId when collapsed
+      // Show only RRN and TransactionLogId when collapsed
       return section.rows.filter(
-        (row) => row.key === "TID" || row.key === "TransactionLogId",
+        (row) => row.key === "RRN" || row.key === "TransactionLogId",
       );
     }
 
@@ -226,7 +240,7 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
           <div key={sectionIndex} className="overflow-x-auto">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="text-sm font-semibold text-gray-700">
-                {section.title}
+                {t(section.title.toLowerCase().replace(/ /g, "_"))}
               </h4>
               {section.collapsible && (
                 <button
@@ -246,10 +260,10 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-b border-gray-200">
-                    Field
+                    {t("field")}
                   </th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-700 uppercase tracking-wider border-b border-gray-200">
-                    Value
+                    {t("value")}
                   </th>
                 </tr>
               </thead>
