@@ -577,10 +577,10 @@ export const SuccessView: FC<SuccessViewProps> = ({
         {pr.authorization ? (
           <SummaryRow label={t("approval_code")} value={pr.authorization} mono />
         ) : null}
-        {pr.payment_datetime ? (
+        {pr.modified_date ? (
           <SummaryRow
-            label={t("completed_at")}
-            value={new Date(pr.payment_datetime).toLocaleString()}
+            label={t("last_updated_at")}
+            value={new Date(pr.modified_date).toLocaleString()}
           />
         ) : null}
       </div>

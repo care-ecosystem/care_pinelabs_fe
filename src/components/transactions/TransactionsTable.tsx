@@ -141,7 +141,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               <TableHead>{t("payment_method")}</TableHead>
               <TableHead>{t("amount")}</TableHead>
               <TableHead>{t("reference_number")}</TableHead>
-              <TableHead>{t("payment_completion_date_time")}</TableHead>
+              <TableHead>{t("last_updated_date_time")}</TableHead>
               <TableHead>{t("status")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -201,8 +201,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 <TableCell>{formatCurrency(Number(transaction.amount))}</TableCell>
                 <TableCell>{transaction.reference_number || "NA"}</TableCell>
                 <TableCell>
-                  {transaction.payment_datetime
-                    ? dayjs(transaction.payment_datetime).format(
+                  {transaction.modified_date
+                    ? dayjs(transaction.modified_date).format(
                         "MMM D, YYYY h:mm A",
                       )
                     : "NA"}

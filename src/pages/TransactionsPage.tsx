@@ -23,7 +23,7 @@ type TransactionsPageProps = {
   facilityId: string;
 };
 
-const DEFAULT_ORDERING = "-payment_datetime";
+const DEFAULT_ORDERING = "-modified_date";
 
 const parseDateOnlyParam = (value?: string) => {
   if (!value) return undefined;

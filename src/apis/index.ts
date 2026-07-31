@@ -179,7 +179,7 @@ export const apis = {
         Object.entries({
           limit: 20,
           offset: 0,
-          ordering: "-payment_datetime",
+          ordering: "-modified_date",
           ...params,
         }).filter(
           ([, value]) => value !== undefined && value !== null && value !== "",
