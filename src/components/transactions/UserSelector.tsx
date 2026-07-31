@@ -104,7 +104,7 @@ export const UserSelector: FC<UserSelectorProps> = ({
                   }}
                   className="cursor-pointer data-[selected=true]:text-red-600"
                 >
-                  {t("clear_all")}
+                  {t("clear_user_filter")}
                 </CommandItem>
               </CommandGroup>
             )}

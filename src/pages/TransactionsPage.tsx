@@ -25,6 +25,12 @@ type TransactionsPageProps = {
 
 const DEFAULT_ORDERING = "-payment_datetime";
 
+const parseDateOnlyParam = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = dayjs(value, "YYYY-MM-DD", true);
+  return parsed.isValid() ? parsed.toDate() : undefined;
+};
+
 const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   const [qParams, setQueryParams] = useQueryParams<Record<string, string>>();
@@ -34,26 +40,33 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Derived default (URL > current user) - never written to the URL itself,
+  // so there's no mount-effect race. "none" marks an explicit clear.
+  const { data: currentUser } = useQuery({
+    queryKey: ["pinelabs_current_user"],
+    queryFn: () => apis.users.currentUser(),
+  });
+  const createdByCleared = qParams.created_by === "none";
+
   const filters: Filters = {
     method:
       (qParams.method as PaymentReconciliationPaymentMethod) ||
       PaymentReconciliationPaymentMethod.ddpo,
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
-    createdBy: qParams.created_by || "",
-    createdByUsername: qParams.created_by_username || "",
-    dateFrom: qParams.created_date_after
-      ? dayjs(qParams.created_date_after).toDate()
-      : undefined,
-    dateTo: qParams.created_date_before
-      ? dayjs(qParams.created_date_before).toDate()
-      : undefined,
+    createdBy: createdByCleared
+      ? ""
+      : qParams.created_by || currentUser?.id || "",
+    createdByUsername: createdByCleared
+      ? ""
+      : qParams.created_by_username || currentUser?.username || "",
+    dateFrom: parseDateOnlyParam(qParams.created_date_after),
+    dateTo: parseDateOnlyParam(qParams.created_date_before),
   };
   const page = Number(qParams.page) || 0;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
 
-  // Fixed key order (page, limit, ordering, filters) keeps the URL shape
-  // consistent across updates.
+  // Fixed key order keeps the URL shape consistent across updates.
   const buildQueryParams = (f: Filters, pageNum: number, ord: string) => {
     const filterEntries = Object.fromEntries(
       Object.entries({
@@ -85,26 +98,6 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Default "Filter by User" to the logged-in user unless one is already set.
-  const { data: currentUser } = useQuery({
-    queryKey: ["pinelabs_current_user"],
-    queryFn: () => apis.users.currentUser(),
-  });
-
-  useEffect(() => {
-    if (currentUser && !qParams.created_by) {
-      setQueryParams(
-        {
-          ...qParams,
-          created_by: currentUser.id,
-          created_by_username: currentUser.username,
-        },
-        { overwrite: true },
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser]);
 
   const handleFiltersChange = (newFilters: Filters) => {
     setQueryParams(buildQueryParams(newFilters, 0, ordering), {

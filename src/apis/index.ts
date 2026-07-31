@@ -46,8 +46,10 @@ export const apis = {
         { signal },
       );
     },
-    get: async (username: string) => {
-      return await request<User>(`/api/v1/users/${username}/`);
+    get: async (facilityId: string, userId: string) => {
+      return await request<User>(
+        `/api/v1/facility/${facilityId}/users/${userId}/`,
+      );
     },
     currentUser: async () => {
       return await request<User>(`/api/v1/users/getcurrentuser/`);

@@ -113,6 +113,7 @@ export const DateRangeFilter: FC<DateRangeFilterProps> = ({
             variant="ghost"
             size="icon-sm"
             onClick={() => setView("options")}
+            aria-label={t("back")}
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </Button>

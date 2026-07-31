@@ -127,6 +127,7 @@
   "all_users": "All Users",
   "filter_by_user": "Filter by User",
   "clear_all": "Clear all",
+  "clear_user_filter": "Clear all",
   "search_users": "Search users",
   "no_users_found": "No users found",
   "clear_filters": "Clear Filters",

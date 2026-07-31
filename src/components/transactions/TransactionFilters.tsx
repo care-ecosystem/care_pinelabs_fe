@@ -185,12 +185,10 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
   const selectedLocation = locations.find((l) => l.id === filters.location);
 
-  // No lookup-by-id endpoint, so resolve the selected user by username instead.
   const { data: resolvedUser } = useQuery({
-    queryKey: ["pinelabs_user", filters.createdByUsername],
-    queryFn: () => apis.users.get(filters.createdByUsername as string),
-    enabled:
-      !!filters.createdByUsername && selectedUser?.id !== filters.createdBy,
+    queryKey: ["pinelabs_user", facilityId, filters.createdBy],
+    queryFn: () => apis.users.get(facilityId, filters.createdBy as string),
+    enabled: !!filters.createdBy && selectedUser?.id !== filters.createdBy,
   });
 
   useEffect(() => {
@@ -384,7 +382,8 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             setSelectedUser(user);
             onFiltersChange({
               ...filters,
-              createdBy: user?.id || "",
+              // "none" marks an explicit clear (vs. default-to-current-user).
+              createdBy: user?.id || "none",
               createdByUsername: user?.username || "",
             });
           }}

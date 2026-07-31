@@ -10,7 +10,6 @@ export type TransactionFilters = {
   method?: PaymentReconciliationPaymentMethod | "";
   location?: string;
   createdBy?: string;
-  // UI-only: used to redisplay the selected user after a page refresh.
   createdByUsername?: string;
 };
 
