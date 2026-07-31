@@ -17,13 +17,13 @@ import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type DateRangeOption = {
+export type DateRangeOption = {
   label: string;
   getDateRange: () => { from: Date; to: Date };
   count?: number;
 };
 
-const presetOptions: DateRangeOption[] = [
+export const presetOptions: DateRangeOption[] = [
   {
     label: "today",
     getDateRange: () => ({ from: new Date(), to: new Date() }),

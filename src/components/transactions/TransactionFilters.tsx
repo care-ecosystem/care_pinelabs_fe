@@ -16,7 +16,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DateRangeFilter } from "@/components/transactions/DateRangeFilter";
+import { isSameDay } from "date-fns";
+import {
+  DateRangeFilter,
+  presetOptions,
+} from "@/components/transactions/DateRangeFilter";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
   PaymentReconciliationStatus,
@@ -84,22 +88,25 @@ const FilterOptionsList: FC<{
         ) : (
           <RadioGroup
             value={selectedValue}
-            onValueChange={(value) =>
-              onSelect(selectedValue === value ? "" : value)
-            }
+            onValueChange={onSelect}
             className="flex flex-col gap-1"
           >
             {filteredOptions.map((option) => {
               const Icon = option.icon;
+              const optionId = `filter-option-${option.value}`;
               return (
-                <div
+                <label
                   key={option.value}
+                  htmlFor={optionId}
                   className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() =>
-                    onSelect(selectedValue === option.value ? "" : option.value)
-                  }
                 >
-                  <RadioGroupItem value={option.value} />
+                  <RadioGroupItem
+                    id={optionId}
+                    value={option.value}
+                    onClick={() => {
+                      if (selectedValue === option.value) onSelect("");
+                    }}
+                  />
                   {option.color && (
                     <div
                       className={cn(
@@ -112,7 +119,7 @@ const FilterOptionsList: FC<{
                   <span className="text-sm text-gray-700 flex-1">
                     {option.label}
                   </span>
-                </div>
+                </label>
               );
             })}
           </RadioGroup>
@@ -229,15 +236,27 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     }
   };
 
+  // Matches care_fe's SelectedDateBadge: show the preset's own label (e.g.
+  // "Today") when the selected range matches one, else the formatted range.
+  const matchedDatePreset = presetOptions.find((option) => {
+    if (!filters.dateFrom || !filters.dateTo) return false;
+    const { from, to } = option.getDateRange();
+    return isSameDay(filters.dateFrom, from) && isSameDay(filters.dateTo, to);
+  });
+
+  const dateSummary = matchedDatePreset
+    ? t(matchedDatePreset.label, { count: matchedDatePreset.count })
+    : [filters.dateFrom, filters.dateTo]
+        .filter(Boolean)
+        .map((d) => dayjs(d).format("MMM D, YYYY"))
+        .join(" - ");
+
   const FILTER_FIELDS = [
     {
       key: "date",
       label: t("date"),
       active: !!(filters.dateFrom || filters.dateTo),
-      summary: [filters.dateFrom, filters.dateTo]
-        .filter(Boolean)
-        .map((d) => dayjs(d).format("MMM D, YYYY"))
-        .join(" - "),
+      summary: dateSummary,
     },
     {
       key: "status",
