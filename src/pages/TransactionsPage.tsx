@@ -42,11 +42,15 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
 
   // Derived default (URL > current user) - never written to the URL itself,
   // so there's no mount-effect race. "none" marks an explicit clear.
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isFetched: currentUserFetched } = useQuery({
     queryKey: ["pinelabs_current_user"],
     queryFn: () => apis.users.currentUser(),
   });
   const createdByCleared = qParams.created_by === "none";
+  // Defer the table query until the default createdBy (URL or current user)
+  // is settled, so the first request is never accidentally unscoped.
+  const filtersReady =
+    createdByCleared || !!qParams.created_by || currentUserFetched;
 
   const filters: Filters = {
     method:
@@ -164,6 +168,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
             filters={filters}
             page={page}
             ordering={ordering}
+            enabled={filtersReady}
             onPageChange={handlePageChange}
             onRowClick={handleRowClick}
             onCountChange={handleCountChange}

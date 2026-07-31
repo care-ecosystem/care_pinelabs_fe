@@ -33,6 +33,7 @@ type TransactionsTableProps = {
   filters: TransactionFilters;
   page: number;
   ordering: string;
+  enabled?: boolean;
   onPageChange: (page: number) => void;
   onRowClick: (transactionId: string) => void;
   onCountChange?: (count: number) => void;
@@ -71,6 +72,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   filters,
   page,
   ordering,
+  enabled = true,
   onPageChange,
   onRowClick,
   onCountChange,
@@ -82,13 +84,14 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     filters,
     { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
     ordering,
+    enabled,
   );
 
   useEffect(() => {
-    if (data?.count !== undefined && onCountChange) {
+    if (enabled && data?.count !== undefined && onCountChange) {
       onCountChange(data.count);
     }
-  }, [data?.count, onCountChange]);
+  }, [enabled, data?.count, onCountChange]);
 
   const getStatusBadgeColor = (
     outcome: PaymentReconciliationOutcome,
@@ -105,7 +108,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !enabled) {
     return <TableSkeleton />;
   }
 

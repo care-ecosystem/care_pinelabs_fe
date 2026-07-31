@@ -18,6 +18,7 @@ export const usePaymentReconciliations = (
   filters: TransactionFilters,
   pagination: { offset: number; limit: number },
   ordering: string = "-payment_datetime",
+  enabled: boolean = true,
 ) => {
   const params: TransactionListParams = {
     ...pagination,
@@ -46,6 +47,6 @@ export const usePaymentReconciliations = (
   return useQuery({
     queryKey: ["payment_reconciliations", facilityId, params],
     queryFn: () => apis.payment_reconciliations.list(facilityId, params),
-    enabled: !!facilityId,
+    enabled: !!facilityId && enabled,
   });
 };
