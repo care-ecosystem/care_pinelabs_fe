@@ -1,4 +1,5 @@
 import { FC, useEffect, useState } from "react";
+import dayjs from "@/lib/dayjs";
 import { useTranslation } from "react-i18next";
 import { useQueryParams } from "raviger";
 import { I18NNAMESPACE } from "@/lib/constants";
@@ -39,8 +40,10 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     location: qParams.location || "",
     createdBy: qParams.created_by || "",
     createdByUsername: qParams.created_by_username || "",
-    dateFrom: qParams.date_from ? new Date(qParams.date_from) : undefined,
-    dateTo: qParams.date_to ? new Date(qParams.date_to) : undefined,
+    dateFrom: qParams.date_from
+      ? dayjs(qParams.date_from).toDate()
+      : undefined,
+    dateTo: qParams.date_to ? dayjs(qParams.date_to).toDate() : undefined,
   };
   const page = Number(qParams.page) || 0;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
@@ -56,8 +59,8 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         location: f.location || "",
         created_by: f.createdBy || "",
         created_by_username: f.createdByUsername || "",
-        date_from: f.dateFrom ? f.dateFrom.toISOString().slice(0, 10) : "",
-        date_to: f.dateTo ? f.dateTo.toISOString().slice(0, 10) : "",
+        date_from: f.dateFrom ? dayjs(f.dateFrom).format("YYYY-MM-DD") : "",
+        date_to: f.dateTo ? dayjs(f.dateTo).format("YYYY-MM-DD") : "",
       }).filter(([, value]) => value !== ""),
     );
     return {

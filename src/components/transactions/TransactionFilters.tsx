@@ -44,6 +44,84 @@ type FilterOption = {
   color?: string;
 };
 
+// Mirrors care_fe's GenericFilter: a search input + a radio list below it,
+// instead of a native/shadcn Select dropdown. Clicking the already-selected
+// option clears it (same interaction care_fe uses instead of an "All" item).
+// Owns its own search state so independently-opened editors (e.g. status and
+// location popovers open at the same time) don't share query text.
+const FilterOptionsList: FC<{
+  options: FilterOption[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  isLoadingOptions?: boolean;
+}> = ({ options, selectedValue, onSelect, isLoadingOptions }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  const [search, setSearch] = useState("");
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="p-0">
+      <div className="p-3 border-b">
+        <Input
+          placeholder={t("search_options")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 text-base sm:text-sm"
+        />
+      </div>
+      <div className="p-3 max-h-[30vh] overflow-y-auto">
+        {isLoadingOptions ? (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2Icon className="size-4 animate-spin" />
+            <p className="text-sm text-gray-600">{t("loading")}</p>
+          </div>
+        ) : filteredOptions.length === 0 ? (
+          <div className="text-sm text-gray-500 text-center py-4">
+            {t("no_results_found")}
+          </div>
+        ) : (
+          <RadioGroup
+            value={selectedValue}
+            onValueChange={(value) =>
+              onSelect(selectedValue === value ? "" : value)
+            }
+            className="flex flex-col gap-1"
+          >
+            {filteredOptions.map((option) => {
+              const Icon = option.icon;
+              return (
+                <div
+                  key={option.value}
+                  className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() =>
+                    onSelect(selectedValue === option.value ? "" : option.value)
+                  }
+                >
+                  <RadioGroupItem value={option.value} />
+                  {option.color && (
+                    <div
+                      className={cn(
+                        "h-3 w-3 rounded-full shrink-0 border",
+                        option.color,
+                      )}
+                    />
+                  )}
+                  {Icon && <Icon className="h-4 w-4 text-gray-500 shrink-0" />}
+                  <span className="text-sm text-gray-700 flex-1">
+                    {option.label}
+                  </span>
+                </div>
+              );
+            })}
+          </RadioGroup>
+        )}
+      </div>
+    </div>
+  );
+};
+
 type TransactionFiltersProps = {
   facilityId: string;
   filters: Filters;
@@ -79,14 +157,12 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const [open, setOpen] = useState(false);
   const [activeFilter, setActiveFilterState] = useState<string | null>(null);
   const [openChip, setOpenChip] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
   // Bumped every time the date editor is (re)opened, forcing DateRangeFilter
   // to remount so its internal view/pending-range state doesn't go stale
   // between openings.
   const [dateEditorKey, setDateEditorKey] = useState(0);
 
   const setActiveFilter = (key: string | null) => {
-    setSearch("");
     if (key === "date") setDateEditorKey((k) => k + 1);
     setActiveFilterState(key);
   };
@@ -116,7 +192,8 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const { data: resolvedUser } = useQuery({
     queryKey: ["pinelabs_user", filters.createdByUsername],
     queryFn: () => apis.users.get(filters.createdByUsername as string),
-    enabled: !!filters.createdByUsername && !selectedUser,
+    enabled:
+      !!filters.createdByUsername && selectedUser?.id !== filters.createdBy,
   });
 
   useEffect(() => {
@@ -124,7 +201,9 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   }, [resolvedUser]);
 
   useEffect(() => {
-    if (selectedUser && !filters.createdBy) setSelectedUser(undefined);
+    if (selectedUser && selectedUser.id !== filters.createdBy) {
+      setSelectedUser(undefined);
+    }
   }, [filters.createdBy, selectedUser]);
 
   const handleClearFilters = () => {
@@ -201,83 +280,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     icon: LocationTypeIcons[location.form],
   }));
 
-  // Mirrors care_fe's GenericFilter: a search input + a radio list below it,
-  // instead of a native/shadcn Select dropdown. Clicking the already-selected
-  // option clears it (same interaction care_fe uses instead of an "All" item).
-  const renderOptionsList = (
-    options: FilterOption[],
-    selectedValue: string,
-    onSelect: (value: string) => void,
-    isLoadingOptions?: boolean,
-  ) => {
-    const filteredOptions = options.filter((o) =>
-      o.label.toLowerCase().includes(search.toLowerCase()),
-    );
-    return (
-      <div className="p-0">
-        <div className="p-3 border-b">
-          <Input
-            placeholder={t("search_options")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="h-8 text-base sm:text-sm"
-          />
-        </div>
-        <div className="p-3 max-h-[30vh] overflow-y-auto">
-          {isLoadingOptions ? (
-            <div className="flex items-center justify-center gap-2 py-4">
-              <Loader2Icon className="size-4 animate-spin" />
-              <p className="text-sm text-gray-600">{t("loading")}</p>
-            </div>
-          ) : filteredOptions.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-4">
-              {t("no_results_found")}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {filteredOptions.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <div
-                    key={option.value}
-                    className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() =>
-                      onSelect(
-                        selectedValue === option.value ? "" : option.value,
-                      )
-                    }
-                  >
-                    <RadioGroup
-                      value={selectedValue}
-                      onValueChange={() => {}}
-                      className="pointer-events-none"
-                    >
-                      <RadioGroupItem value={option.value} />
-                    </RadioGroup>
-                    {option.color && (
-                      <div
-                        className={cn(
-                          "h-3 w-3 rounded-full shrink-0 border",
-                          option.color,
-                        )}
-                      />
-                    )}
-                    {Icon && (
-                      <Icon className="h-4 w-4 text-gray-500 shrink-0" />
-                    )}
-                    <span className="text-sm text-gray-700 flex-1">
-                      {option.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const renderEditor = (key: string) => {
     switch (key) {
       case "date":
@@ -293,18 +295,26 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           />
         );
       case "status":
-        return renderOptionsList(STATUS_OPTIONS, filters.status || "", (value) =>
-          onFiltersChange({
-            ...filters,
-            status: value as PaymentReconciliationStatus,
-          }),
+        return (
+          <FilterOptionsList
+            options={STATUS_OPTIONS}
+            selectedValue={filters.status || ""}
+            onSelect={(value) =>
+              onFiltersChange({
+                ...filters,
+                status: value as PaymentReconciliationStatus,
+              })
+            }
+          />
         );
       case "location":
-        return renderOptionsList(
-          LOCATION_OPTIONS,
-          filters.location || "",
-          (value) => onFiltersChange({ ...filters, location: value }),
-          isLocationsLoading,
+        return (
+          <FilterOptionsList
+            options={LOCATION_OPTIONS}
+            selectedValue={filters.location || ""}
+            onSelect={(value) => onFiltersChange({ ...filters, location: value })}
+            isLoadingOptions={isLocationsLoading}
+          />
         );
       default:
         return null;
@@ -427,7 +437,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             open={openChip === field.key}
             onOpenChange={(next) => {
               if (next) {
-                setSearch("");
                 if (field.key === "date") setDateEditorKey((k) => k + 1);
               }
               setOpenChip(next ? field.key : null);
@@ -463,6 +472,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
               <Button
                 variant="ghost"
                 onClick={() => handleClearOne(field.key)}
+                aria-label={`${t("clear_filters")}: ${field.label}`}
                 className="flex border-l rounded-l-none border-gray-200 hover:bg-gray-50"
               >
                 <XIcon className="h-5 w-5 text-gray-600" />
