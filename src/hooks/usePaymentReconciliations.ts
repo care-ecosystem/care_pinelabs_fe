@@ -6,6 +6,15 @@ import {
 } from "@/types/transaction_filters";
 import dayjs from "@/lib/dayjs";
 
+// Mirrors care_fe's dateTimeQueryString: sends a full datetime, with the
+// "before" bound set to the start of the *next* day so the selected end
+// date is included in full (exclusive upper bound).
+const dateTimeQueryString = (date: Date, isEndDate = false) => {
+  let d = dayjs(date).startOf("day");
+  if (isEndDate) d = d.add(1, "day");
+  return d.toISOString();
+};
+
 export const usePaymentReconciliations = (
   facilityId: string,
   filters: TransactionFilters,
@@ -18,10 +27,10 @@ export const usePaymentReconciliations = (
   };
 
   if (filters.dateFrom) {
-    params.created_date_after = dayjs(filters.dateFrom).format("YYYY-MM-DD");
+    params.created_date_after = dateTimeQueryString(filters.dateFrom);
   }
   if (filters.dateTo) {
-    params.created_date_before = dayjs(filters.dateTo).format("YYYY-MM-DD");
+    params.created_date_before = dateTimeQueryString(filters.dateTo, true);
   }
   if (filters.status && String(filters.status) !== "") {
     params.status = String(filters.status);
