@@ -1,6 +1,14 @@
-import { FC, useState } from "react";
+import { FC, useState, useEffect, ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -8,12 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { DateRangeFilter } from "@/components/transactions/DateRangeFilter";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
@@ -35,6 +37,13 @@ import { User } from "@/types/user";
 import { cn } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
 
+type FilterOption = {
+  value: string;
+  label: string;
+  icon?: ComponentType<{ className?: string }>;
+  color?: string;
+};
+
 type TransactionFiltersProps = {
   facilityId: string;
   filters: Filters;
@@ -47,16 +56,18 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
-const METHOD_LABEL_KEYS: Record<string, string> = {
-  [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_upi",
-  [PaymentReconciliationPaymentMethod.debc]: "payment_method_card",
+// Matches care_fe's PAYMENT_RECONCILIATION_STATUS_COLORS -> getVariantColorClasses
+// mapping exactly: active=primary, draft=secondary (gray), cancelled=destructive.
+const STATUS_PILL_CLASSES: Record<string, string> = {
+  [PaymentReconciliationStatus.active]:
+    "border-primary-300 bg-primary-100 text-primary-900",
+  [PaymentReconciliationStatus.draft]:
+    "border-gray-300 bg-gray-100 text-gray-900",
+  [PaymentReconciliationStatus.cancelled]:
+    "border-red-300 bg-red-100 text-red-900",
 };
 
-const STATUS_PILL_CLASSES: Record<string, string> = {
-  [PaymentReconciliationStatus.active]: "bg-green-100 text-green-800",
-  [PaymentReconciliationStatus.draft]: "bg-yellow-100 text-yellow-800",
-  [PaymentReconciliationStatus.cancelled]: "bg-red-100 text-red-800",
-};
+const STATUS_DOT_CLASSES = STATUS_PILL_CLASSES;
 
 export const TransactionFilters: FC<TransactionFiltersProps> = ({
   facilityId,
@@ -66,7 +77,25 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const { t } = useTranslation(I18NNAMESPACE);
   const [selectedUser, setSelectedUser] = useState<User | undefined>();
   const [open, setOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilterState] = useState<string | null>(null);
+  const [openChip, setOpenChip] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  // Bumped every time the date editor is (re)opened, forcing DateRangeFilter
+  // to remount so its internal view/pending-range state doesn't go stale
+  // between openings.
+  const [dateEditorKey, setDateEditorKey] = useState(0);
+
+  const setActiveFilter = (key: string | null) => {
+    setSearch("");
+    if (key === "date") setDateEditorKey((k) => k + 1);
+    setActiveFilterState(key);
+  };
+
+  const closeFilterPopovers = () => {
+    setOpen(false);
+    setActiveFilterState(null);
+    setOpenChip(null);
+  };
 
   const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
     queryKey: ["pinelabs_locations", facilityId],
@@ -81,14 +110,33 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
   const selectedLocation = locations.find((l) => l.id === filters.location);
 
+  // Resolve the selected user's display info (name/avatar) from the URL on
+  // refresh - the API has no lookup-by-id endpoint, so we persist the
+  // username too and fetch by that instead.
+  const { data: resolvedUser } = useQuery({
+    queryKey: ["pinelabs_user", filters.createdByUsername],
+    queryFn: () => apis.users.get(filters.createdByUsername as string),
+    enabled: !!filters.createdByUsername && !selectedUser,
+  });
+
+  useEffect(() => {
+    if (resolvedUser) setSelectedUser(resolvedUser);
+  }, [resolvedUser]);
+
+  useEffect(() => {
+    if (selectedUser && !filters.createdBy) setSelectedUser(undefined);
+  }, [filters.createdBy, selectedUser]);
+
   const handleClearFilters = () => {
+    setSelectedUser(undefined);
     onFiltersChange({
       ...filters,
       dateFrom: undefined,
       dateTo: undefined,
       status: "",
-      method: "",
       location: "",
+      createdBy: "",
+      createdByUsername: "",
     });
   };
 
@@ -97,8 +145,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       onFiltersChange({ ...filters, dateFrom: undefined, dateTo: undefined });
     } else if (key === "status") {
       onFiltersChange({ ...filters, status: "" });
-    } else if (key === "method") {
-      onFiltersChange({ ...filters, method: "" });
     } else if (key === "location") {
       onFiltersChange({ ...filters, location: "" });
     }
@@ -121,12 +167,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       summary: filters.status ? t(STATUS_LABEL_KEYS[filters.status]) : "",
     },
     {
-      key: "method",
-      label: t("payment_method"),
-      active: !!filters.method,
-      summary: filters.method ? t(METHOD_LABEL_KEYS[filters.method]) : "",
-    },
-    {
       key: "location",
       label: t("location"),
       active: !!filters.location,
@@ -135,125 +175,136 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   ];
 
   const activeCount = FILTER_FIELDS.filter((f) => f.active).length;
+  const totalActiveCount = activeCount + (filters.createdBy ? 1 : 0);
+
+  const STATUS_OPTIONS: FilterOption[] = [
+    {
+      value: PaymentReconciliationStatus.active,
+      label: t("status_completed"),
+      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.active],
+    },
+    {
+      value: PaymentReconciliationStatus.draft,
+      label: t("status_pending"),
+      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.draft],
+    },
+    {
+      value: PaymentReconciliationStatus.cancelled,
+      label: t("status_cancelled"),
+      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.cancelled],
+    },
+  ];
+
+  const LOCATION_OPTIONS: FilterOption[] = locations.map((location) => ({
+    value: location.id,
+    label: location.name,
+    icon: LocationTypeIcons[location.form],
+  }));
+
+  // Mirrors care_fe's GenericFilter: a search input + a radio list below it,
+  // instead of a native/shadcn Select dropdown. Clicking the already-selected
+  // option clears it (same interaction care_fe uses instead of an "All" item).
+  const renderOptionsList = (
+    options: FilterOption[],
+    selectedValue: string,
+    onSelect: (value: string) => void,
+    isLoadingOptions?: boolean,
+  ) => {
+    const filteredOptions = options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase()),
+    );
+    return (
+      <div className="p-0">
+        <div className="p-3 border-b">
+          <Input
+            placeholder={t("search_options")}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 text-base sm:text-sm"
+          />
+        </div>
+        <div className="p-3 max-h-[30vh] overflow-y-auto">
+          {isLoadingOptions ? (
+            <div className="flex items-center justify-center gap-2 py-4">
+              <Loader2Icon className="size-4 animate-spin" />
+              <p className="text-sm text-gray-600">{t("loading")}</p>
+            </div>
+          ) : filteredOptions.length === 0 ? (
+            <div className="text-sm text-gray-500 text-center py-4">
+              {t("no_results_found")}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {filteredOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <div
+                    key={option.value}
+                    className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() =>
+                      onSelect(
+                        selectedValue === option.value ? "" : option.value,
+                      )
+                    }
+                  >
+                    <RadioGroup
+                      value={selectedValue}
+                      onValueChange={() => {}}
+                      className="pointer-events-none"
+                    >
+                      <RadioGroupItem value={option.value} />
+                    </RadioGroup>
+                    {option.color && (
+                      <div
+                        className={cn(
+                          "h-3 w-3 rounded-full shrink-0 border",
+                          option.color,
+                        )}
+                      />
+                    )}
+                    {Icon && (
+                      <Icon className="h-4 w-4 text-gray-500 shrink-0" />
+                    )}
+                    <span className="text-sm text-gray-700 flex-1">
+                      {option.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderEditor = (key: string) => {
     switch (key) {
       case "date":
         return (
           <DateRangeFilter
+            key={dateEditorKey}
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}
             onChange={({ dateFrom, dateTo }) =>
               onFiltersChange({ ...filters, dateFrom, dateTo })
             }
+            onCommit={closeFilterPopovers}
           />
         );
       case "status":
-        return (
-          <Select
-            value={filters.status || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, status: "" });
-              } else {
-                onFiltersChange({
-                  ...filters,
-                  status: value as PaymentReconciliationStatus,
-                });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_statuses")} />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.status && (
-                <SelectItem value="clear">{t("all_statuses")}</SelectItem>
-              )}
-              <SelectItem value={PaymentReconciliationStatus.active}>
-                {t("status_completed")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationStatus.draft}>
-                {t("status_pending")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationStatus.cancelled}>
-                {t("status_cancelled")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        );
-      case "method":
-        return (
-          <Select
-            value={filters.method || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, method: "" });
-              } else {
-                onFiltersChange({
-                  ...filters,
-                  method: value as PaymentReconciliationPaymentMethod,
-                });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_methods")} />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.method && (
-                <SelectItem value="clear">{t("all_methods")}</SelectItem>
-              )}
-              <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
-                {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
-                {t("payment_method_card")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+        return renderOptionsList(STATUS_OPTIONS, filters.status || "", (value) =>
+          onFiltersChange({
+            ...filters,
+            status: value as PaymentReconciliationStatus,
+          }),
         );
       case "location":
-        return (
-          <Select
-            value={filters.location || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, location: "" });
-              } else {
-                onFiltersChange({ ...filters, location: value });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_locations")} />
-            </SelectTrigger>
-            <SelectContent>
-              {isLocationsLoading ? (
-                <div className="flex items-center justify-center gap-2 p-2">
-                  <Loader2Icon className="size-4 animate-spin" />
-                  <p className="text-sm text-gray-600">{t("loading")}</p>
-                </div>
-              ) : (
-                <>
-                  {filters.location && (
-                    <SelectItem value="clear">{t("all_locations")}</SelectItem>
-                  )}
-                  {locations.map((location) => {
-                    const Icon = LocationTypeIcons[location.form];
-                    return (
-                      <SelectItem key={location.id} value={location.id}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-gray-500 shrink-0" />
-                          <span className="truncate">{location.name}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </>
-              )}
-            </SelectContent>
-          </Select>
+        return renderOptionsList(
+          LOCATION_OPTIONS,
+          filters.location || "",
+          (value) => onFiltersChange({ ...filters, location: value }),
+          isLocationsLoading,
         );
       default:
         return null;
@@ -262,6 +313,31 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+      {/* Payment method - mandatory, kept outside the clubbed popover */}
+      <div className="w-full sm:w-64">
+        <Select
+          value={filters.method || PaymentReconciliationPaymentMethod.ddpo}
+          onValueChange={(value) => {
+            onFiltersChange({
+              ...filters,
+              method: value as PaymentReconciliationPaymentMethod,
+            });
+          }}
+        >
+          <SelectTrigger className="w-full" aria-label={t("payment_method")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
+              {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
+            </SelectItem>
+            <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
+              {t("payment_method_card")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* User filter - kept outside the clubbed popover, like care_fe's Payments page */}
       <div className="w-full sm:w-fit">
         <UserSelector
@@ -269,12 +345,16 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           selectedUser={selectedUser}
           onChange={(user) => {
             setSelectedUser(user);
-            onFiltersChange({ ...filters, createdBy: user?.id || "" });
+            onFiltersChange({
+              ...filters,
+              createdBy: user?.id || "",
+              createdByUsername: user?.username || "",
+            });
           }}
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+      <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-fit">
         <Popover
           open={open}
           onOpenChange={(next) => {
@@ -295,7 +375,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            className="w-[calc(100vw-3rem)] sm:max-w-xs p-0"
+            className="w-[calc(100vw)] max-w-[calc(100vw-3rem)] sm:max-w-xs p-0"
             align="start"
           >
             {activeFilter ? (
@@ -313,7 +393,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                     {FILTER_FIELDS.find((f) => f.key === activeFilter)?.label}
                   </span>
                 </div>
-                <div className="p-3">{renderEditor(activeFilter)}</div>
+                {renderEditor(activeFilter)}
               </div>
             ) : (
               <div className="px-2 pt-2 pb-2">
@@ -329,10 +409,8 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                       <span className="text-sm">{field.label}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {!!field.summary && (
-                        <span className="max-w-24 truncate text-xs text-gray-500">
-                          {field.summary}
-                        </span>
+                      {field.active && (
+                        <span className="text-xs text-gray-500">1</span>
                       )}
                       <ChevronRightIcon className="h-4 w-4" />
                     </div>
@@ -344,49 +422,62 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         </Popover>
 
         {FILTER_FIELDS.filter((f) => f.active).map((field) => (
-          <div
+          <Popover
             key={field.key}
-            className="flex items-center bg-white rounded-md border border-gray-200 w-fit"
+            open={openChip === field.key}
+            onOpenChange={(next) => {
+              if (next) {
+                setSearch("");
+                if (field.key === "date") setDateEditorKey((k) => k + 1);
+              }
+              setOpenChip(next ? field.key : null);
+            }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilter(field.key);
-                setOpen(true);
-              }}
-              className="flex items-center gap-2 px-3 h-9 text-sm cursor-pointer"
-            >
-              <span className="truncate text-gray-950 font-medium">
-                {field.label}
-              </span>
-            </button>
-            <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap border-l border-gray-200">
-              {field.key === "status" ? (
-                <span
-                  className={cn(
-                    "truncate rounded-full px-2 py-0.5 text-xs font-medium",
-                    STATUS_PILL_CLASSES[filters.status || ""],
-                  )}
+            <div className="flex items-center bg-white rounded-md border border-gray-200 w-fit">
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-3 h-9 text-sm cursor-pointer"
                 >
-                  {field.summary}
-                </span>
-              ) : (
-                <span className="truncate text-gray-950 font-medium text-sm">
-                  {field.summary}
-                </span>
-              )}
+                  <span className="truncate text-gray-950 font-medium">
+                    {field.label}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap border-l border-gray-200">
+                {field.key === "status" ? (
+                  <span
+                    className={cn(
+                      "truncate rounded-full border px-2 py-0.5 text-sm font-medium",
+                      STATUS_PILL_CLASSES[filters.status || ""],
+                    )}
+                  >
+                    {field.summary}
+                  </span>
+                ) : (
+                  <span className="truncate text-gray-950 font-medium text-sm">
+                    {field.summary}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => handleClearOne(field.key)}
+                className="flex border-l rounded-l-none border-gray-200 hover:bg-gray-50"
+              >
+                <XIcon className="h-5 w-5 text-gray-600" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              onClick={() => handleClearOne(field.key)}
-              className="flex border-l rounded-l-none border-gray-200 hover:bg-gray-50"
+            <PopoverContent
+              className="w-[calc(100vw)] max-w-[calc(100vw-3rem)] sm:max-w-xs p-0"
+              align="start"
             >
-              <XIcon className="h-5 w-5 text-gray-600" />
-            </Button>
-          </div>
+              {renderEditor(field.key)}
+            </PopoverContent>
+          </Popover>
         ))}
 
-        {activeCount > 1 && (
+        {totalActiveCount > 1 && (
           <Button
             variant="ghost"
             onClick={handleClearFilters}
