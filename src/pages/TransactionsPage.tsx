@@ -40,10 +40,12 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     location: qParams.location || "",
     createdBy: qParams.created_by || "",
     createdByUsername: qParams.created_by_username || "",
-    dateFrom: qParams.date_from
-      ? dayjs(qParams.date_from).toDate()
+    dateFrom: qParams.created_date_after
+      ? dayjs(qParams.created_date_after).toDate()
       : undefined,
-    dateTo: qParams.date_to ? dayjs(qParams.date_to).toDate() : undefined,
+    dateTo: qParams.created_date_before
+      ? dayjs(qParams.created_date_before).toDate()
+      : undefined,
   };
   const page = Number(qParams.page) || 0;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
@@ -59,8 +61,12 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         location: f.location || "",
         created_by: f.createdBy || "",
         created_by_username: f.createdByUsername || "",
-        date_from: f.dateFrom ? dayjs(f.dateFrom).format("YYYY-MM-DD") : "",
-        date_to: f.dateTo ? dayjs(f.dateTo).format("YYYY-MM-DD") : "",
+        created_date_after: f.dateFrom
+          ? dayjs(f.dateFrom).format("YYYY-MM-DD")
+          : "",
+        created_date_before: f.dateTo
+          ? dayjs(f.dateTo).format("YYYY-MM-DD")
+          : "",
       }).filter(([, value]) => value !== ""),
     );
     return {

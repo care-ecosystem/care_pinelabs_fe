@@ -185,7 +185,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                       </a>
                     </Button>
                   ) : (
-                    "-"
+                    <div className="text-center">NA</div>
                   )}
                 </TableCell>
                 <TableCell>

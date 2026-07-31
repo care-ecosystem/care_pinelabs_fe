@@ -457,7 +457,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 {field.key === "status" ? (
                   <span
                     className={cn(
-                      "truncate rounded-full border px-2 py-0.5 text-sm font-medium",
+                      "truncate rounded-md border px-2.5 py-px text-sm font-medium",
                       STATUS_PILL_CLASSES[filters.status || ""],
                     )}
                   >
