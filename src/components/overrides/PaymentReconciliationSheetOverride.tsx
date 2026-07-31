@@ -15,21 +15,6 @@ export interface PaymentReconciliationSheetOverrideProps {
   __base?: React.ComponentType<PaymentReconciliationSheetOverrideProps>;
 }
 
-const cleanupModalStyles = () => {
-  document.documentElement.style.pointerEvents = "auto";
-  document.body.style.pointerEvents = "auto";
-  const blockedElements = document.querySelectorAll(
-    '[style*="pointer-events"]'
-  );
-  blockedElements.forEach((el) => {
-    const element = el as HTMLElement;
-    if (element.style.pointerEvents === "none") {
-      element.style.pointerEvents = "auto";
-      console.log("[Override] Fixed pointer-events on element:", el);
-    }
-  });
-};
-
 const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOverrideProps) => {
 
   const [urlMode, setUrlMode] = useState<string | null>(null);
@@ -90,9 +75,6 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           onOpenChange={(open: boolean) => {
             if (!open) {
               removeUrlParam("mode");
-              setTimeout(() => {
-                cleanupModalStyles();
-              }, 0);
             }
             props.onOpenChange(open);
           }}
@@ -132,10 +114,6 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           }}
           onClose={() => {
             removeUrlParam("mode");
-            setTimeout(() => {
-              cleanupModalStyles();
-            }, 0);
-
             props.onOpenChange(false);
           }}
         />
@@ -158,9 +136,6 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           }}
           onClose={() => {
             removeUrlParam("mode");
-            setTimeout(() => {
-              cleanupModalStyles();
-            }, 0);
             props.onOpenChange(false);
           }}
         />

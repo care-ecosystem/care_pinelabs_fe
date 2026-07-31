@@ -41,7 +41,6 @@ import {
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
-import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { ShortcutBadge } from "@/components/common/ShortcutBadge";
 import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 
@@ -83,24 +82,11 @@ const PAYMENT_METHODS = [
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
   invoice,
-  account,
   autoOpen = false,
   isCreditNote = false,
   onClose,
   onSwitchToManual,
 }) => {
-
-  if (account) {
-    return (
-      <PineLabsAccountPayment
-        facilityId={facilityId}
-        account={account}
-        autoOpen={autoOpen}
-        isCreditNote={isCreditNote}
-        onClose={onClose}
-      />
-    );
-  }
 
   if (!invoice) {
     return null;

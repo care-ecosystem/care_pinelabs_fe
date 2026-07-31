@@ -14,6 +14,9 @@ const manifest = {
     },
   ],
   components: {
+    InvoiceRecordPaymentOptions: lazy(
+      () => import("./components/pluggables/InvoiceRecordPaymentOptions")
+    ),
     FacilityHomeActions: lazy(
       () => import("./components/pluggables/FacilityHomeActions")
     ),
