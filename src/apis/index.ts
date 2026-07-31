@@ -46,6 +46,9 @@ export const apis = {
         { signal },
       );
     },
+    get: async (username: string) => {
+      return await request<User>(`/api/v1/users/${username}/`);
+    },
   },
   locations: {
     list: async (

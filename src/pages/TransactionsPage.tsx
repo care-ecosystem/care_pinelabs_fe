@@ -36,6 +36,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
     createdBy: qParams.created_by || "",
+    createdByUsername: qParams.created_by_username || "",
     dateFrom: qParams.date_from ? new Date(qParams.date_from) : undefined,
     dateTo: qParams.date_to ? new Date(qParams.date_to) : undefined,
   };
@@ -52,6 +53,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         status: f.status || "",
         location: f.location || "",
         created_by: f.createdBy || "",
+        created_by_username: f.createdByUsername || "",
         date_from: f.dateFrom ? f.dateFrom.toISOString().slice(0, 10) : "",
         date_to: f.dateTo ? f.dateTo.toISOString().slice(0, 10) : "",
       }).filter(([, value]) => value !== ""),
