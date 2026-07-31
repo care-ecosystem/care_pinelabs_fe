@@ -102,7 +102,7 @@ export const UserSelector: FC<UserSelectorProps> = ({
                     onChange(undefined);
                     setOpen(false);
                   }}
-                  className="cursor-pointer text-red-600"
+                  className="cursor-pointer data-[selected=true]:text-red-600"
                 >
                   {t("clear_all")}
                 </CommandItem>

@@ -2,6 +2,11 @@ import { FC, useState, useEffect, ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
+import {
+  StatusBadge,
+  STATUS_BADGE_COLOR_CLASSES,
+  StatusBadgeColor,
+} from "@/components/ui/status-badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
 import {
@@ -137,17 +142,11 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
-// active=primary, draft=secondary (gray), cancelled=destructive.
-const STATUS_PILL_CLASSES: Record<string, string> = {
-  [PaymentReconciliationStatus.active]:
-    "border-primary-300 bg-primary-100 text-primary-900",
-  [PaymentReconciliationStatus.draft]:
-    "border-gray-300 bg-gray-100 text-gray-900",
-  [PaymentReconciliationStatus.cancelled]:
-    "border-red-300 bg-red-100 text-red-900",
+const STATUS_BADGE_COLORS: Record<string, StatusBadgeColor> = {
+  [PaymentReconciliationStatus.active]: "success",
+  [PaymentReconciliationStatus.draft]: "warning",
+  [PaymentReconciliationStatus.cancelled]: "danger",
 };
-
-const STATUS_DOT_CLASSES = STATUS_PILL_CLASSES;
 
 export const TransactionFilters: FC<TransactionFiltersProps> = ({
   facilityId,
@@ -204,16 +203,14 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     }
   }, [filters.createdBy, selectedUser]);
 
+  // User filter is cleared via its own popover, not this button.
   const handleClearFilters = () => {
-    setSelectedUser(undefined);
     onFiltersChange({
       ...filters,
       dateFrom: undefined,
       dateTo: undefined,
       status: "",
       location: "",
-      createdBy: "",
-      createdByUsername: "",
     });
   };
 
@@ -276,23 +273,31 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   ];
 
   const activeCount = FILTER_FIELDS.filter((f) => f.active).length;
-  const totalActiveCount = activeCount + (filters.createdBy ? 1 : 0);
 
   const STATUS_OPTIONS: FilterOption[] = [
     {
       value: PaymentReconciliationStatus.active,
       label: t("status_completed"),
-      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.active],
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.active]
+        ],
     },
     {
       value: PaymentReconciliationStatus.draft,
       label: t("status_pending"),
-      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.draft],
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.draft]
+        ],
     },
     {
       value: PaymentReconciliationStatus.cancelled,
       label: t("status_cancelled"),
-      color: STATUS_DOT_CLASSES[PaymentReconciliationStatus.cancelled],
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.cancelled]
+        ],
     },
   ];
 
@@ -481,15 +486,13 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                 </div>
               )}
               <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap">
-                {field.key === "status" ? (
-                  <span
-                    className={cn(
-                      "truncate rounded-md border px-2.5 py-px text-sm font-medium",
-                      STATUS_PILL_CLASSES[filters.status || ""],
-                    )}
+                {field.key === "status" && filters.status ? (
+                  <StatusBadge
+                    color={STATUS_BADGE_COLORS[filters.status]}
+                    className="truncate"
                   >
                     {field.summary}
-                  </span>
+                  </StatusBadge>
                 ) : (
                   <span className="truncate text-gray-950 font-medium text-sm">
                     {field.summary}
@@ -514,7 +517,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           </Popover>
         ))}
 
-        {totalActiveCount > 1 && (
+        {activeCount > 1 && (
           <Button
             variant="ghost"
             onClick={handleClearFilters}

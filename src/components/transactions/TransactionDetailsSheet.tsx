@@ -8,7 +8,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Badge } from "@/components/ui/badge";
+import {
+  StatusBadge,
+  StatusBadgeColor,
+} from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import {
   PaymentReconciliation,
@@ -131,16 +134,18 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
 
   if (!transactionId) return null;
 
-  const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
+  const getStatusBadgeColor = (
+    outcome: PaymentReconciliationOutcome,
+  ): StatusBadgeColor => {
     switch (outcome) {
       case PaymentReconciliationOutcome.complete:
-        return "default";
+        return "success";
       case PaymentReconciliationOutcome.error:
-        return "destructive";
+        return "danger";
       case PaymentReconciliationOutcome.partial:
-        return "secondary";
+        return "warning";
       default:
-        return "outline";
+        return "warning";
     }
   };
 
@@ -209,9 +214,9 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
             <p className="text-sm font-medium text-gray-500 mb-1">
               {t("status")}
             </p>
-            <Badge variant={getStatusBadgeVariant(transaction.outcome)}>
+            <StatusBadge color={getStatusBadgeColor(transaction.outcome)}>
               {t(`status_${transaction.outcome}`)}
-            </Badge>
+            </StatusBadge>
           </div>
 
           {/* Invoice Information */}

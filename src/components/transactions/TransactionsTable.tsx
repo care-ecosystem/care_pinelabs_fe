@@ -1,7 +1,10 @@
 import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
-import { Badge } from "@/components/ui/badge";
+import {
+  StatusBadge,
+  StatusBadgeColor,
+} from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -87,16 +90,18 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     }
   }, [data?.count, onCountChange]);
 
-  const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
+  const getStatusBadgeColor = (
+    outcome: PaymentReconciliationOutcome,
+  ): StatusBadgeColor => {
     switch (outcome) {
       case PaymentReconciliationOutcome.complete:
-        return "default";
+        return "success";
       case PaymentReconciliationOutcome.error:
-        return "destructive";
+        return "danger";
       case PaymentReconciliationOutcome.partial:
-        return "secondary";
+        return "warning";
       default:
-        return "outline";
+        return "warning";
     }
   };
 
@@ -184,7 +189,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                       </a>
                     </Button>
                   ) : (
-                    <div className="text-center">NA</div>
+                    <div className="flex h-9 items-center px-3">NA</div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -200,12 +205,9 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                     : "NA"}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={getStatusBadgeVariant(transaction.outcome)}
-                    className="px-2.5 py-px text-sm font-medium"
-                  >
+                  <StatusBadge color={getStatusBadgeColor(transaction.outcome)}>
                     {t(`status_${transaction.outcome}`)}
-                  </Badge>
+                  </StatusBadge>
                 </TableCell>
               </TableRow>
             ))}
