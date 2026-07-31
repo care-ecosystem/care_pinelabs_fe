@@ -15,8 +15,8 @@ type TransactionSortProps = {
 };
 
 const SORT_OPTIONS: Record<string, string> = {
-  "-payment_datetime": "sort_by_latest_payment",
-  payment_datetime: "sort_by_oldest_payment",
+  "-modified_date": "sort_by_latest_updated",
+  modified_date: "sort_by_oldest_updated",
   "-created_date": "sort_by_latest_created",
   created_date: "sort_by_oldest_created",
 };

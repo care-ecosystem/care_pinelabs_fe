@@ -52,7 +52,7 @@ export type PaymentReconciliation = {
   outcome: PaymentReconciliationOutcome;
   disposition?: string;
   created_date?: string;
-  payment_datetime?: string;
+  modified_date?: string;
   method: PaymentReconciliationPaymentMethod;
   reference_number?: string;
   authorization?: string;

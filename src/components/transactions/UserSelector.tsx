@@ -62,7 +62,7 @@ export const UserSelector: FC<UserSelectorProps> = ({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between font-normal"
+          className="min-w-60 w-full justify-start font-normal"
         >
           {selectedUser ? (
             <div className="flex items-center gap-2 min-w-0">
@@ -71,10 +71,12 @@ export const UserSelector: FC<UserSelectorProps> = ({
                 name={formatUserName(selectedUser)}
                 className="size-6 rounded-full shrink-0"
               />
-              <span className="truncate">{formatUserName(selectedUser)}</span>
+              <span className="truncate text-gray-950">
+                {formatUserName(selectedUser)}
+              </span>
             </div>
           ) : (
-            <span className="text-gray-500">{t("all_users")}</span>
+            <span className="text-gray-500">{t("filter_by_user")}</span>
           )}
           <ChevronDownIcon className="h-4 w-4 ml-auto shrink-0 opacity-50" />
         </Button>
@@ -102,9 +104,9 @@ export const UserSelector: FC<UserSelectorProps> = ({
                     onChange(undefined);
                     setOpen(false);
                   }}
-                  className="cursor-pointer"
+                  className="cursor-pointer data-[selected=true]:text-red-600"
                 >
-                  {t("all_users")}
+                  {t("clear_user_filter")}
                 </CommandItem>
               </CommandGroup>
             )}

@@ -66,9 +66,12 @@ export const queryString = (
     return "";
   }
 
-  const paramString = Object.keys(params)
-    .map((key) => `${key}=${params[key]}`)
-    .join("&");
+  const searchParams = new URLSearchParams();
+  for (const key of Object.keys(params)) {
+    searchParams.set(key, String(params[key]));
+  }
+
+  const paramString = searchParams.toString();
 
   return paramString ? `?${paramString}` : "";
 };

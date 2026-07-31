@@ -1,7 +1,10 @@
 import { FC, useEffect, useState } from "react";
+import dayjs from "@/lib/dayjs";
 import { useTranslation } from "react-i18next";
 import { useQueryParams } from "raviger";
+import { useQuery } from "@tanstack/react-query";
 import { I18NNAMESPACE } from "@/lib/constants";
+import { apis } from "@/apis";
 import {
   TransactionsTable,
   ITEMS_PER_PAGE,
@@ -20,7 +23,13 @@ type TransactionsPageProps = {
   facilityId: string;
 };
 
-const DEFAULT_ORDERING = "-payment_datetime";
+const DEFAULT_ORDERING = "-modified_date";
+
+const parseDateOnlyParam = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = dayjs(value, "YYYY-MM-DD", true);
+  return parsed.isValid() ? parsed.toDate() : undefined;
+};
 
 const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const { t } = useTranslation(I18NNAMESPACE);
@@ -31,29 +40,51 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Derived default (URL > current user) - never written to the URL itself,
+  // so there's no mount-effect race. "none" marks an explicit clear.
+  const { data: currentUser, isFetched: currentUserFetched } = useQuery({
+    queryKey: ["pinelabs_current_user"],
+    queryFn: () => apis.users.currentUser(),
+  });
+  const createdByCleared = qParams.created_by === "none";
+  // Defer the table query until the default createdBy (URL or current user)
+  // is settled, so the first request is never accidentally unscoped.
+  const filtersReady =
+    createdByCleared || !!qParams.created_by || currentUserFetched;
+
   const filters: Filters = {
-    method: (qParams.method as PaymentReconciliationPaymentMethod) || "",
+    method:
+      (qParams.method as PaymentReconciliationPaymentMethod) ||
+      PaymentReconciliationPaymentMethod.ddpo,
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
-    createdBy: qParams.created_by || "",
-    dateFrom: qParams.date_from ? new Date(qParams.date_from) : undefined,
-    dateTo: qParams.date_to ? new Date(qParams.date_to) : undefined,
+    createdBy: createdByCleared
+      ? ""
+      : qParams.created_by || currentUser?.id || "",
+    createdByUsername: createdByCleared
+      ? ""
+      : qParams.created_by_username || currentUser?.username || "",
+    dateFrom: parseDateOnlyParam(qParams.created_date_after),
+    dateTo: parseDateOnlyParam(qParams.created_date_before),
   };
   const page = Number(qParams.page) || 0;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
 
-  // Builds the query params in a fixed key order (page, limit, ordering, then
-  // filters) so the URL shape stays consistent across every update, matching
-  // how care_fe's useFilters always writes page/limit first.
+  // Fixed key order keeps the URL shape consistent across updates.
   const buildQueryParams = (f: Filters, pageNum: number, ord: string) => {
     const filterEntries = Object.fromEntries(
       Object.entries({
         method: f.method || "",
         status: f.status || "",
         location: f.location || "",
-        created_by: f.createdBy || "",
-        date_from: f.dateFrom ? f.dateFrom.toISOString().slice(0, 10) : "",
-        date_to: f.dateTo ? f.dateTo.toISOString().slice(0, 10) : "",
+        created_by: f.createdBy || (createdByCleared ? "none" : ""),
+        created_by_username: f.createdByUsername || "",
+        created_date_after: f.dateFrom
+          ? dayjs(f.dateFrom).format("YYYY-MM-DD")
+          : "",
+        created_date_before: f.dateTo
+          ? dayjs(f.dateTo).format("YYYY-MM-DD")
+          : "",
       }).filter(([, value]) => value !== ""),
     );
     return {
@@ -64,8 +95,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     };
   };
 
-  // Seed page/limit/ordering into the URL on first load, even before any
-  // filter is touched, matching care_fe's PaymentsData mount-time behavior.
+  // Seed page/limit/ordering into the URL on first load.
   useEffect(() => {
     setQueryParams(buildQueryParams(filters, page, ordering), {
       overwrite: true,
@@ -138,6 +168,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
             filters={filters}
             page={page}
             ordering={ordering}
+            enabled={filtersReady}
             onPageChange={handlePageChange}
             onRowClick={handleRowClick}
             onCountChange={handleCountChange}

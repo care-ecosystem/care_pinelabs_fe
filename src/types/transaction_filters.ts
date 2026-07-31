@@ -10,6 +10,7 @@ export type TransactionFilters = {
   method?: PaymentReconciliationPaymentMethod | "";
   location?: string;
   createdBy?: string;
+  createdByUsername?: string;
 };
 
 export type TransactionListParams = {

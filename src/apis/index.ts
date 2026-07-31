@@ -46,6 +46,14 @@ export const apis = {
         { signal },
       );
     },
+    get: async (facilityId: string, userId: string) => {
+      return await request<User>(
+        `/api/v1/facility/${facilityId}/users/${userId}/`,
+      );
+    },
+    currentUser: async () => {
+      return await request<User>(`/api/v1/users/getcurrentuser/`);
+    },
   },
   locations: {
     list: async (
@@ -171,7 +179,7 @@ export const apis = {
         Object.entries({
           limit: 20,
           offset: 0,
-          ordering: "-payment_datetime",
+          ordering: "-modified_date",
           ...params,
         }).filter(
           ([, value]) => value !== undefined && value !== null && value !== "",

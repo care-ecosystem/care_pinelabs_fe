@@ -1,6 +1,19 @@
-import { FC, useState } from "react";
+import { FC, useState, useEffect, ComponentType } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
+import { Input } from "@/components/ui/input";
+import {
+  StatusBadge,
+  STATUS_BADGE_COLOR_CLASSES,
+  StatusBadgeColor,
+} from "@/components/ui/status-badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -8,13 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { isSameDay } from "date-fns";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { DateRangeFilter } from "@/components/transactions/DateRangeFilter";
+  DateRangeFilter,
+  presetOptions,
+} from "@/components/transactions/DateRangeFilter";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import {
   PaymentReconciliationStatus,
@@ -35,6 +46,90 @@ import { User } from "@/types/user";
 import { cn } from "@/lib/utils";
 import dayjs from "@/lib/dayjs";
 
+type FilterOption = {
+  value: string;
+  label: string;
+  icon?: ComponentType<{ className?: string }>;
+  color?: string;
+};
+
+// Owns its own search state so independently-opened editors don't share query text.
+const FilterOptionsList: FC<{
+  options: FilterOption[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  isLoadingOptions?: boolean;
+}> = ({ options, selectedValue, onSelect, isLoadingOptions }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  const [search, setSearch] = useState("");
+  const filteredOptions = options.filter((o) =>
+    o.label.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  return (
+    <div className="p-0">
+      <div className="p-3 border-b">
+        <Input
+          placeholder={t("search_options")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-8 text-base sm:text-sm"
+        />
+      </div>
+      <div className="p-3 max-h-[30vh] overflow-y-auto">
+        {isLoadingOptions ? (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2Icon className="size-4 animate-spin" />
+            <p className="text-sm text-gray-600">{t("loading")}</p>
+          </div>
+        ) : filteredOptions.length === 0 ? (
+          <div className="text-sm text-gray-500 text-center py-4">
+            {t("no_results_found")}
+          </div>
+        ) : (
+          <RadioGroup
+            value={selectedValue}
+            onValueChange={onSelect}
+            className="flex flex-col gap-1"
+          >
+            {filteredOptions.map((option) => {
+              const Icon = option.icon;
+              const optionId = `filter-option-${option.value}`;
+              return (
+                <label
+                  key={option.value}
+                  htmlFor={optionId}
+                  className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <RadioGroupItem
+                    id={optionId}
+                    value={option.value}
+                    onClick={() => {
+                      if (selectedValue === option.value) onSelect("");
+                    }}
+                  />
+                  {option.color && (
+                    <div
+                      className={cn(
+                        "h-3 w-3 rounded-full shrink-0 border",
+                        option.color,
+                      )}
+                    />
+                  )}
+                  {Icon && <Icon className="h-4 w-4 text-gray-500 shrink-0" />}
+                  <span className="text-sm text-gray-700 flex-1">
+                    {option.label}
+                  </span>
+                </label>
+              );
+            })}
+          </RadioGroup>
+        )}
+      </div>
+    </div>
+  );
+};
+
 type TransactionFiltersProps = {
   facilityId: string;
   filters: Filters;
@@ -47,15 +142,10 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
-const METHOD_LABEL_KEYS: Record<string, string> = {
-  [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_upi",
-  [PaymentReconciliationPaymentMethod.debc]: "payment_method_card",
-};
-
-const STATUS_PILL_CLASSES: Record<string, string> = {
-  [PaymentReconciliationStatus.active]: "bg-green-100 text-green-800",
-  [PaymentReconciliationStatus.draft]: "bg-yellow-100 text-yellow-800",
-  [PaymentReconciliationStatus.cancelled]: "bg-red-100 text-red-800",
+const STATUS_BADGE_COLORS: Record<string, StatusBadgeColor> = {
+  [PaymentReconciliationStatus.active]: "success",
+  [PaymentReconciliationStatus.draft]: "warning",
+  [PaymentReconciliationStatus.cancelled]: "danger",
 };
 
 export const TransactionFilters: FC<TransactionFiltersProps> = ({
@@ -66,7 +156,21 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const { t } = useTranslation(I18NNAMESPACE);
   const [selectedUser, setSelectedUser] = useState<User | undefined>();
   const [open, setOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [activeFilter, setActiveFilterState] = useState<string | null>(null);
+  const [openChip, setOpenChip] = useState<string | null>(null);
+  // Bumped on open to force DateRangeFilter to remount, avoiding stale state.
+  const [dateEditorKey, setDateEditorKey] = useState(0);
+
+  const setActiveFilter = (key: string | null) => {
+    if (key === "date") setDateEditorKey((k) => k + 1);
+    setActiveFilterState(key);
+  };
+
+  const closeFilterPopovers = () => {
+    setOpen(false);
+    setActiveFilterState(null);
+    setOpenChip(null);
+  };
 
   const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
     queryKey: ["pinelabs_locations", facilityId],
@@ -81,13 +185,29 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
   const selectedLocation = locations.find((l) => l.id === filters.location);
 
+  const { data: resolvedUser } = useQuery({
+    queryKey: ["pinelabs_user", facilityId, filters.createdBy],
+    queryFn: () => apis.users.get(facilityId, filters.createdBy as string),
+    enabled: !!filters.createdBy && selectedUser?.id !== filters.createdBy,
+  });
+
+  useEffect(() => {
+    if (resolvedUser) setSelectedUser(resolvedUser);
+  }, [resolvedUser]);
+
+  useEffect(() => {
+    if (selectedUser && selectedUser.id !== filters.createdBy) {
+      setSelectedUser(undefined);
+    }
+  }, [filters.createdBy, selectedUser]);
+
+  // User filter is cleared via its own popover, not this button.
   const handleClearFilters = () => {
     onFiltersChange({
       ...filters,
       dateFrom: undefined,
       dateTo: undefined,
       status: "",
-      method: "",
       location: "",
     });
   };
@@ -97,163 +217,129 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       onFiltersChange({ ...filters, dateFrom: undefined, dateTo: undefined });
     } else if (key === "status") {
       onFiltersChange({ ...filters, status: "" });
-    } else if (key === "method") {
-      onFiltersChange({ ...filters, method: "" });
     } else if (key === "location") {
       onFiltersChange({ ...filters, location: "" });
     }
   };
+
+  const matchedDatePreset = presetOptions.find((option) => {
+    if (!filters.dateFrom || !filters.dateTo) return false;
+    const { from, to } = option.getDateRange();
+    return isSameDay(filters.dateFrom, from) && isSameDay(filters.dateTo, to);
+  });
+
+  const dateSummary = matchedDatePreset
+    ? t(matchedDatePreset.label, { count: matchedDatePreset.count })
+    : [filters.dateFrom, filters.dateTo]
+        .filter(Boolean)
+        .map((d) => dayjs(d).format("MMM D, YYYY"))
+        .join(" - ");
+
+  const dateOperation =
+    filters.dateFrom && filters.dateTo
+      ? isSameDay(filters.dateFrom, filters.dateTo)
+        ? "is_on"
+        : "b/w"
+      : filters.dateFrom
+        ? "after"
+        : filters.dateTo
+          ? "before"
+          : "";
 
   const FILTER_FIELDS = [
     {
       key: "date",
       label: t("date"),
       active: !!(filters.dateFrom || filters.dateTo),
-      summary: [filters.dateFrom, filters.dateTo]
-        .filter(Boolean)
-        .map((d) => dayjs(d).format("MMM D, YYYY"))
-        .join(" - "),
+      operation: dateOperation ? t(dateOperation) : "",
+      summary: dateSummary,
     },
     {
       key: "status",
       label: t("status"),
       active: !!filters.status,
+      operation: t("is"),
       summary: filters.status ? t(STATUS_LABEL_KEYS[filters.status]) : "",
-    },
-    {
-      key: "method",
-      label: t("payment_method"),
-      active: !!filters.method,
-      summary: filters.method ? t(METHOD_LABEL_KEYS[filters.method]) : "",
     },
     {
       key: "location",
       label: t("location"),
       active: !!filters.location,
+      operation: t("is"),
       summary: selectedLocation?.name || "",
     },
   ];
 
   const activeCount = FILTER_FIELDS.filter((f) => f.active).length;
 
+  const STATUS_OPTIONS: FilterOption[] = [
+    {
+      value: PaymentReconciliationStatus.active,
+      label: t("status_completed"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.active]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.draft,
+      label: t("status_pending"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.draft]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.cancelled,
+      label: t("status_cancelled"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.cancelled]
+        ],
+    },
+  ];
+
+  const LOCATION_OPTIONS: FilterOption[] = locations.map((location) => ({
+    value: location.id,
+    label: location.name,
+    icon: LocationTypeIcons[location.form],
+  }));
+
   const renderEditor = (key: string) => {
     switch (key) {
       case "date":
         return (
           <DateRangeFilter
+            key={dateEditorKey}
             dateFrom={filters.dateFrom}
             dateTo={filters.dateTo}
             onChange={({ dateFrom, dateTo }) =>
               onFiltersChange({ ...filters, dateFrom, dateTo })
             }
+            onCommit={closeFilterPopovers}
           />
         );
       case "status":
         return (
-          <Select
-            value={filters.status || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, status: "" });
-              } else {
-                onFiltersChange({
-                  ...filters,
-                  status: value as PaymentReconciliationStatus,
-                });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_statuses")} />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.status && (
-                <SelectItem value="clear">{t("all_statuses")}</SelectItem>
-              )}
-              <SelectItem value={PaymentReconciliationStatus.active}>
-                {t("status_completed")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationStatus.draft}>
-                {t("status_pending")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationStatus.cancelled}>
-                {t("status_cancelled")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        );
-      case "method":
-        return (
-          <Select
-            value={filters.method || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, method: "" });
-              } else {
-                onFiltersChange({
-                  ...filters,
-                  method: value as PaymentReconciliationPaymentMethod,
-                });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_methods")} />
-            </SelectTrigger>
-            <SelectContent>
-              {filters.method && (
-                <SelectItem value="clear">{t("all_methods")}</SelectItem>
-              )}
-              <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
-                {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
-              </SelectItem>
-              <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
-                {t("payment_method_card")}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <FilterOptionsList
+            options={STATUS_OPTIONS}
+            selectedValue={filters.status || ""}
+            onSelect={(value) =>
+              onFiltersChange({
+                ...filters,
+                status: value as PaymentReconciliationStatus,
+              })
+            }
+          />
         );
       case "location":
         return (
-          <Select
-            value={filters.location || undefined}
-            onValueChange={(value) => {
-              if (value === "clear") {
-                onFiltersChange({ ...filters, location: "" });
-              } else {
-                onFiltersChange({ ...filters, location: value });
-              }
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder={t("all_locations")} />
-            </SelectTrigger>
-            <SelectContent>
-              {isLocationsLoading ? (
-                <div className="flex items-center justify-center gap-2 p-2">
-                  <Loader2Icon className="size-4 animate-spin" />
-                  <p className="text-sm text-gray-600">{t("loading")}</p>
-                </div>
-              ) : (
-                <>
-                  {filters.location && (
-                    <SelectItem value="clear">{t("all_locations")}</SelectItem>
-                  )}
-                  {locations.map((location) => {
-                    const Icon = LocationTypeIcons[location.form];
-                    return (
-                      <SelectItem key={location.id} value={location.id}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4 text-gray-500 shrink-0" />
-                          <span className="truncate">{location.name}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </>
-              )}
-            </SelectContent>
-          </Select>
+          <FilterOptionsList
+            options={LOCATION_OPTIONS}
+            selectedValue={filters.location || ""}
+            onSelect={(value) => onFiltersChange({ ...filters, location: value })}
+            isLoadingOptions={isLocationsLoading}
+          />
         );
       default:
         return null;
@@ -262,6 +348,34 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
 
   return (
     <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+      {/* Payment method - mandatory, kept outside the clubbed popover */}
+      <div className="w-full sm:w-64">
+        <Select
+          value={filters.method || PaymentReconciliationPaymentMethod.ddpo}
+          onValueChange={(value) => {
+            onFiltersChange({
+              ...filters,
+              method: value as PaymentReconciliationPaymentMethod,
+            });
+          }}
+        >
+          <SelectTrigger
+            className="w-full text-gray-950"
+            aria-label={t("payment_method")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
+              {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
+            </SelectItem>
+            <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
+              {t("payment_method_card")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* User filter - kept outside the clubbed popover, like care_fe's Payments page */}
       <div className="w-full sm:w-fit">
         <UserSelector
@@ -269,12 +383,17 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           selectedUser={selectedUser}
           onChange={(user) => {
             setSelectedUser(user);
-            onFiltersChange({ ...filters, createdBy: user?.id || "" });
+            onFiltersChange({
+              ...filters,
+              // "none" marks an explicit clear (vs. default-to-current-user).
+              createdBy: user?.id || "none",
+              createdByUsername: user?.username || "",
+            });
           }}
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+      <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-fit">
         <Popover
           open={open}
           onOpenChange={(next) => {
@@ -295,7 +414,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            className="w-[calc(100vw-3rem)] sm:max-w-xs p-0"
+            className="w-[calc(100vw)] max-w-[calc(100vw-3rem)] sm:max-w-xs p-0"
             align="start"
           >
             {activeFilter ? (
@@ -313,7 +432,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                     {FILTER_FIELDS.find((f) => f.key === activeFilter)?.label}
                   </span>
                 </div>
-                <div className="p-3">{renderEditor(activeFilter)}</div>
+                {renderEditor(activeFilter)}
               </div>
             ) : (
               <div className="px-2 pt-2 pb-2">
@@ -329,10 +448,8 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                       <span className="text-sm">{field.label}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {!!field.summary && (
-                        <span className="max-w-24 truncate text-xs text-gray-500">
-                          {field.summary}
-                        </span>
+                      {field.active && (
+                        <span className="text-xs text-gray-500">1</span>
                       )}
                       <ChevronRightIcon className="h-4 w-4" />
                     </div>
@@ -344,46 +461,62 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         </Popover>
 
         {FILTER_FIELDS.filter((f) => f.active).map((field) => (
-          <div
+          <Popover
             key={field.key}
-            className="flex items-center bg-white rounded-md border border-gray-200 w-fit"
+            open={openChip === field.key}
+            onOpenChange={(next) => {
+              if (next) {
+                if (field.key === "date") setDateEditorKey((k) => k + 1);
+              }
+              setOpenChip(next ? field.key : null);
+            }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setActiveFilter(field.key);
-                setOpen(true);
-              }}
-              className="flex items-center gap-2 px-3 h-9 text-sm cursor-pointer"
-            >
-              <span className="truncate text-gray-950 font-medium">
-                {field.label}
-              </span>
-            </button>
-            <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap border-l border-gray-200">
-              {field.key === "status" ? (
-                <span
-                  className={cn(
-                    "truncate rounded-full px-2 py-0.5 text-xs font-medium",
-                    STATUS_PILL_CLASSES[filters.status || ""],
-                  )}
+            <div className="flex items-center bg-white rounded-md border border-gray-200 w-fit">
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-3 h-9 text-sm cursor-pointer"
                 >
-                  {field.summary}
-                </span>
-              ) : (
-                <span className="truncate text-gray-950 font-medium text-sm">
-                  {field.summary}
-                </span>
+                  <span className="truncate text-gray-950 font-medium">
+                    {field.label}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              {!!field.operation && (
+                <div className="flex items-center gap-2 px-2.5 h-9 border-x border-gray-200 underline text-sm text-gray-600 whitespace-nowrap">
+                  {field.operation}
+                </div>
               )}
+              <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap">
+                {field.key === "status" && filters.status ? (
+                  <StatusBadge
+                    color={STATUS_BADGE_COLORS[filters.status]}
+                    className="truncate"
+                  >
+                    {field.summary}
+                  </StatusBadge>
+                ) : (
+                  <span className="truncate text-gray-950 font-medium text-sm">
+                    {field.summary}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => handleClearOne(field.key)}
+                aria-label={`${t("clear_filters")}: ${field.label}`}
+                className="flex border-l rounded-l-none border-gray-200 hover:bg-gray-50"
+              >
+                <XIcon className="h-5 w-5 text-gray-600" />
+              </Button>
             </div>
-            <Button
-              variant="ghost"
-              onClick={() => handleClearOne(field.key)}
-              className="flex border-l rounded-l-none border-gray-200 hover:bg-gray-50"
+            <PopoverContent
+              className="w-[calc(100vw)] max-w-[calc(100vw-3rem)] sm:max-w-xs p-0"
+              align="start"
             >
-              <XIcon className="h-5 w-5 text-gray-600" />
-            </Button>
-          </div>
+              {renderEditor(field.key)}
+            </PopoverContent>
+          </Popover>
         ))}
 
         {activeCount > 1 && (

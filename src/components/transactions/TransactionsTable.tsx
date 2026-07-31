@@ -1,7 +1,10 @@
 import { FC, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
-import { Badge } from "@/components/ui/badge";
+import {
+  StatusBadge,
+  StatusBadgeColor,
+} from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -30,6 +33,7 @@ type TransactionsTableProps = {
   filters: TransactionFilters;
   page: number;
   ordering: string;
+  enabled?: boolean;
   onPageChange: (page: number) => void;
   onRowClick: (transactionId: string) => void;
   onCountChange?: (count: number) => void;
@@ -68,6 +72,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   filters,
   page,
   ordering,
+  enabled = true,
   onPageChange,
   onRowClick,
   onCountChange,
@@ -79,29 +84,31 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     filters,
     { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
     ordering,
+    enabled,
   );
 
-  // Update parent with count when data changes
   useEffect(() => {
-    if (data?.count !== undefined && onCountChange) {
+    if (enabled && data?.count !== undefined && onCountChange) {
       onCountChange(data.count);
     }
-  }, [data?.count, onCountChange]);
+  }, [enabled, data?.count, onCountChange]);
 
-  const getStatusBadgeVariant = (outcome: PaymentReconciliationOutcome) => {
+  const getStatusBadgeColor = (
+    outcome: PaymentReconciliationOutcome,
+  ): StatusBadgeColor => {
     switch (outcome) {
       case PaymentReconciliationOutcome.complete:
-        return "default";
+        return "success";
       case PaymentReconciliationOutcome.error:
-        return "destructive";
+        return "danger";
       case PaymentReconciliationOutcome.partial:
-        return "secondary";
+        return "warning";
       default:
-        return "outline";
+        return "warning";
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !enabled) {
     return <TableSkeleton />;
   }
 
@@ -134,7 +141,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               <TableHead>{t("payment_method")}</TableHead>
               <TableHead>{t("amount")}</TableHead>
               <TableHead>{t("reference_number")}</TableHead>
-              <TableHead>{t("payment_completion_date_time")}</TableHead>
+              <TableHead>{t("last_updated_date_time")}</TableHead>
               <TableHead>{t("status")}</TableHead>
             </TableRow>
           </TableHeader>
@@ -185,7 +192,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                       </a>
                     </Button>
                   ) : (
-                    "-"
+                    <div className="flex h-9 items-center px-3">NA</div>
                   )}
                 </TableCell>
                 <TableCell>
@@ -194,19 +201,16 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                 <TableCell>{formatCurrency(Number(transaction.amount))}</TableCell>
                 <TableCell>{transaction.reference_number || "NA"}</TableCell>
                 <TableCell>
-                  {transaction.payment_datetime
-                    ? dayjs(transaction.payment_datetime).format(
+                  {transaction.modified_date
+                    ? dayjs(transaction.modified_date).format(
                         "MMM D, YYYY h:mm A",
                       )
                     : "NA"}
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={getStatusBadgeVariant(transaction.outcome)}
-                    className="px-2.5 py-px text-sm font-medium"
-                  >
+                  <StatusBadge color={getStatusBadgeColor(transaction.outcome)}>
                     {t(`status_${transaction.outcome}`)}
-                  </Badge>
+                  </StatusBadge>
                 </TableCell>
               </TableRow>
             ))}
