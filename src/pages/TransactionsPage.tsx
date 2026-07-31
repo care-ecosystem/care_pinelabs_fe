@@ -32,7 +32,9 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const [totalCount, setTotalCount] = useState(0);
 
   const filters: Filters = {
-    method: (qParams.method as PaymentReconciliationPaymentMethod) || "",
+    method:
+      (qParams.method as PaymentReconciliationPaymentMethod) ||
+      PaymentReconciliationPaymentMethod.ddpo,
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
     createdBy: qParams.created_by || "",
