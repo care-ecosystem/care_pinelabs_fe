@@ -73,7 +73,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
         method: f.method || "",
         status: f.status || "",
         location: f.location || "",
-        created_by: f.createdBy || "",
+        created_by: f.createdBy || (createdByCleared ? "none" : ""),
         created_by_username: f.createdByUsername || "",
         created_date_after: f.dateFrom
           ? dayjs(f.dateFrom).format("YYYY-MM-DD")
