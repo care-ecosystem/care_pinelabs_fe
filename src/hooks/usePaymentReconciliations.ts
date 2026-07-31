@@ -6,9 +6,7 @@ import {
 } from "@/types/transaction_filters";
 import dayjs from "@/lib/dayjs";
 
-// Mirrors care_fe's dateTimeQueryString: sends a full datetime, with the
-// "before" bound set to the start of the *next* day so the selected end
-// date is included in full (exclusive upper bound).
+// "before" bound is the start of the *next* day so the end date is included.
 const dateTimeQueryString = (date: Date, isEndDate = false) => {
   let d = dayjs(date).startOf("day");
   if (isEndDate) d = d.add(1, "day");

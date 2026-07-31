@@ -48,11 +48,7 @@ type FilterOption = {
   color?: string;
 };
 
-// Mirrors care_fe's GenericFilter: a search input + a radio list below it,
-// instead of a native/shadcn Select dropdown. Clicking the already-selected
-// option clears it (same interaction care_fe uses instead of an "All" item).
-// Owns its own search state so independently-opened editors (e.g. status and
-// location popovers open at the same time) don't share query text.
+// Owns its own search state so independently-opened editors don't share query text.
 const FilterOptionsList: FC<{
   options: FilterOption[];
   selectedValue: string;
@@ -141,8 +137,7 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
-// Matches care_fe's PAYMENT_RECONCILIATION_STATUS_COLORS -> getVariantColorClasses
-// mapping exactly: active=primary, draft=secondary (gray), cancelled=destructive.
+// active=primary, draft=secondary (gray), cancelled=destructive.
 const STATUS_PILL_CLASSES: Record<string, string> = {
   [PaymentReconciliationStatus.active]:
     "border-primary-300 bg-primary-100 text-primary-900",
@@ -164,9 +159,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const [open, setOpen] = useState(false);
   const [activeFilter, setActiveFilterState] = useState<string | null>(null);
   const [openChip, setOpenChip] = useState<string | null>(null);
-  // Bumped every time the date editor is (re)opened, forcing DateRangeFilter
-  // to remount so its internal view/pending-range state doesn't go stale
-  // between openings.
+  // Bumped on open to force DateRangeFilter to remount, avoiding stale state.
   const [dateEditorKey, setDateEditorKey] = useState(0);
 
   const setActiveFilter = (key: string | null) => {
@@ -193,9 +186,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
   const selectedLocation = locations.find((l) => l.id === filters.location);
 
-  // Resolve the selected user's display info (name/avatar) from the URL on
-  // refresh - the API has no lookup-by-id endpoint, so we persist the
-  // username too and fetch by that instead.
+  // No lookup-by-id endpoint, so resolve the selected user by username instead.
   const { data: resolvedUser } = useQuery({
     queryKey: ["pinelabs_user", filters.createdByUsername],
     queryFn: () => apis.users.get(filters.createdByUsername as string),
@@ -236,8 +227,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     }
   };
 
-  // Matches care_fe's SelectedDateBadge: show the preset's own label (e.g.
-  // "Today") when the selected range matches one, else the formatted range.
   const matchedDatePreset = presetOptions.find((option) => {
     if (!filters.dateFrom || !filters.dateTo) return false;
     const { from, to } = option.getDateRange();
@@ -251,8 +240,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         .map((d) => dayjs(d).format("MMM D, YYYY"))
         .join(" - ");
 
-  // Matches care_fe's getDateOperations: the "is on" / "b/w" / "after" /
-  // "before" label shown between the filter name and its value.
   const dateOperation =
     filters.dateFrom && filters.dateTo
       ? isSameDay(filters.dateFrom, filters.dateTo)

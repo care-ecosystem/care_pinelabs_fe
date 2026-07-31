@@ -49,6 +49,9 @@ export const apis = {
     get: async (username: string) => {
       return await request<User>(`/api/v1/users/${username}/`);
     },
+    currentUser: async () => {
+      return await request<User>(`/api/v1/users/getcurrentuser/`);
+    },
   },
   locations: {
     list: async (

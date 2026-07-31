@@ -10,8 +10,7 @@ export type TransactionFilters = {
   method?: PaymentReconciliationPaymentMethod | "";
   location?: string;
   createdBy?: string;
-  // UI-only: lets the user filter be redisplayed (name/avatar) after a page
-  // refresh, since the API has no lookup-by-id endpoint for users.
+  // UI-only: used to redisplay the selected user after a page refresh.
   createdByUsername?: string;
 };
 

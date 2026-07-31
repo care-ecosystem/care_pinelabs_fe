@@ -81,7 +81,6 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
     ordering,
   );
 
-  // Update parent with count when data changes
   useEffect(() => {
     if (data?.count !== undefined && onCountChange) {
       onCountChange(data.count);

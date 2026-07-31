@@ -2,7 +2,9 @@ import { FC, useEffect, useState } from "react";
 import dayjs from "@/lib/dayjs";
 import { useTranslation } from "react-i18next";
 import { useQueryParams } from "raviger";
+import { useQuery } from "@tanstack/react-query";
 import { I18NNAMESPACE } from "@/lib/constants";
+import { apis } from "@/apis";
 import {
   TransactionsTable,
   ITEMS_PER_PAGE,
@@ -50,9 +52,8 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const page = Number(qParams.page) || 0;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
 
-  // Builds the query params in a fixed key order (page, limit, ordering, then
-  // filters) so the URL shape stays consistent across every update, matching
-  // how care_fe's useFilters always writes page/limit first.
+  // Fixed key order (page, limit, ordering, filters) keeps the URL shape
+  // consistent across updates.
   const buildQueryParams = (f: Filters, pageNum: number, ord: string) => {
     const filterEntries = Object.fromEntries(
       Object.entries({
@@ -77,14 +78,33 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     };
   };
 
-  // Seed page/limit/ordering into the URL on first load, even before any
-  // filter is touched, matching care_fe's PaymentsData mount-time behavior.
+  // Seed page/limit/ordering into the URL on first load.
   useEffect(() => {
     setQueryParams(buildQueryParams(filters, page, ordering), {
       overwrite: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Default "Filter by User" to the logged-in user unless one is already set.
+  const { data: currentUser } = useQuery({
+    queryKey: ["pinelabs_current_user"],
+    queryFn: () => apis.users.currentUser(),
+  });
+
+  useEffect(() => {
+    if (currentUser && !qParams.created_by) {
+      setQueryParams(
+        {
+          ...qParams,
+          created_by: currentUser.id,
+          created_by_username: currentUser.username,
+        },
+        { overwrite: true },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   const handleFiltersChange = (newFilters: Filters) => {
     setQueryParams(buildQueryParams(newFilters, 0, ordering), {

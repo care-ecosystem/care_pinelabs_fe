@@ -72,10 +72,8 @@ type DateRangeFilterProps = {
   onCommit?: () => void;
 };
 
-// Inline content (no self-contained Popover/trigger) - meant to be rendered
-// directly inside an already-open filter popover/editor pane, matching
-// care_fe's RenderDateFilter which replaces the current popover's content
-// in place rather than opening a second nested popover.
+// Inline content (no self-contained Popover/trigger) - rendered directly
+// inside an already-open filter popover/editor pane.
 export const DateRangeFilter: FC<DateRangeFilterProps> = ({
   dateFrom,
   dateTo,
