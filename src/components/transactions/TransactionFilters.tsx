@@ -251,23 +251,39 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         .map((d) => dayjs(d).format("MMM D, YYYY"))
         .join(" - ");
 
+  // Matches care_fe's getDateOperations: the "is on" / "b/w" / "after" /
+  // "before" label shown between the filter name and its value.
+  const dateOperation =
+    filters.dateFrom && filters.dateTo
+      ? isSameDay(filters.dateFrom, filters.dateTo)
+        ? "is_on"
+        : "b/w"
+      : filters.dateFrom
+        ? "after"
+        : filters.dateTo
+          ? "before"
+          : "";
+
   const FILTER_FIELDS = [
     {
       key: "date",
       label: t("date"),
       active: !!(filters.dateFrom || filters.dateTo),
+      operation: dateOperation ? t(dateOperation) : "",
       summary: dateSummary,
     },
     {
       key: "status",
       label: t("status"),
       active: !!filters.status,
+      operation: t("is"),
       summary: filters.status ? t(STATUS_LABEL_KEYS[filters.status]) : "",
     },
     {
       key: "location",
       label: t("location"),
       active: !!filters.location,
+      operation: t("is"),
       summary: selectedLocation?.name || "",
     },
   ];
@@ -472,7 +488,12 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
                   </span>
                 </button>
               </PopoverTrigger>
-              <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap border-l border-gray-200">
+              {!!field.operation && (
+                <div className="flex items-center gap-2 px-2.5 h-9 border-x border-gray-200 underline text-sm text-gray-600 whitespace-nowrap">
+                  {field.operation}
+                </div>
+              )}
+              <div className="flex items-center gap-2 px-3 h-9 whitespace-nowrap">
                 {field.key === "status" ? (
                   <span
                     className={cn(
