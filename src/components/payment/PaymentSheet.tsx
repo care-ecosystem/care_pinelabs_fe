@@ -145,6 +145,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   });
 
   const livePr = settledPr ?? polledPr;
+  const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
+  const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
   const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
   const showFailure =
     livePr?.outcome === PaymentReconciliationOutcome.error ||
@@ -346,6 +348,8 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   paymentMethodLabel={currentPaymentMethodLabel}
                   amount={amount}
                   isPolling={isPolling}
+                  transactionNumber={transactionNumber}
+                  transactionReferenceId={transactionReferenceId}
                 />
               )}
             </div>

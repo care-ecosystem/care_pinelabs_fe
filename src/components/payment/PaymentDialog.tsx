@@ -185,6 +185,8 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   });
 
   const livePr = settledPr ?? polledPr;
+  const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
+  const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
   const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
   const showFailure =
     livePr?.outcome === PaymentReconciliationOutcome.error ||
@@ -329,8 +331,8 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const tooltipReason = disabled && disabledReason
     ? t(disabledReason)
     : !isSelectedPaymentMethodSupported
-    ? t("selected_payment_method_not_supported")
-    : undefined;
+      ? t("selected_payment_method_not_supported")
+      : undefined;
 
   const triggerButton = useMemo(
     () =>
@@ -428,6 +430,8 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
             paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
             amount={displayAmount}
             isPolling={isPolling}
+            transactionNumber={transactionNumber}
+            transactionReferenceId={transactionReferenceId}
           />
         ) : (
           <FormView
@@ -512,28 +516,54 @@ type InProgressViewProps = {
   paymentMethodLabel: string;
   amount: number;
   isPolling: boolean;
+  transactionNumber?: string | null;
+  transactionReferenceId?: string | null;
 };
 
-export const InProgressView: FC<InProgressViewProps> = ({ paymentMethodLabel, amount, isPolling }) => {
+export const InProgressView: FC<InProgressViewProps> = ({
+  paymentMethodLabel,
+  amount,
+  isPolling,
+  transactionNumber,
+  transactionReferenceId,
+}) => {
   const { t } = useTranslation(I18NNAMESPACE);
+
+  const txNumber = transactionNumber ?? undefined;
+  const txRefId = transactionReferenceId ?? undefined;
+
   return (
-  <div className="space-y-4">
-    <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center dark:border-blue-800 dark:bg-blue-950">
-      <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-blue-600 dark:text-blue-300" />
-      <p className="mt-3 text-sm font-medium text-blue-800 dark:text-blue-200">
-        {t("transaction_in_progress")}
-      </p>
-      <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
-        {isPolling
-          ? t("waiting_for_customer")
-          : t("checking_status")}
-      </p>
+    <div className="space-y-4">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center dark:border-blue-800 dark:bg-blue-950">
+        <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-blue-600 dark:text-blue-300" />
+        <p className="mt-3 text-sm font-medium text-blue-800 dark:text-blue-200">
+          {t("transaction_in_progress")}
+        </p>
+        <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+          {isPolling
+            ? t("waiting_for_customer")
+            : t("checking_status")}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+        <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
+        {txNumber ? (
+          <SummaryRow
+            label={t("transaction_number")}
+            value={txNumber}
+            mono
+          />
+        ) : null}
+        {txRefId ? (
+          <SummaryRow
+            label={t("reference_number")}
+            value={txRefId}
+            mono
+          />
+        ) : null}
+      </div>
     </div>
-    <div className="space-y-2">
-      <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
-      <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
-    </div>
-  </div>
   );
 };
 
@@ -682,21 +712,21 @@ type TimedOutViewProps = {
 export const TimedOutView: FC<TimedOutViewProps> = ({ paymentMethodLabel, amount }) => {
   const { t } = useTranslation(I18NNAMESPACE);
   return (
-  <div className="space-y-4">
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
-      <ClockIcon className="mx-auto h-10 w-10 text-amber-600 dark:text-amber-300" />
-      <p className="mt-3 text-sm font-semibold text-amber-800 dark:text-amber-200">
-        {t("transaction_timed_out")}
-      </p>
-      <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-        {t("transaction_timeout_message")}
-      </p>
+    <div className="space-y-4">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center dark:border-amber-800 dark:bg-amber-950">
+        <ClockIcon className="mx-auto h-10 w-10 text-amber-600 dark:text-amber-300" />
+        <p className="mt-3 text-sm font-semibold text-amber-800 dark:text-amber-200">
+          {t("transaction_timed_out")}
+        </p>
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+          {t("transaction_timeout_message")}
+        </p>
+      </div>
+      <div className="space-y-2">
+        <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
+        <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
+      </div>
     </div>
-    <div className="space-y-2">
-      <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
-      <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
-    </div>
-  </div>
   );
 };
 
