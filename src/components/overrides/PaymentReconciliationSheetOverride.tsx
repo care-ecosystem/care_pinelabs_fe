@@ -2,14 +2,15 @@ import { useEffect, useState } from "react";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { Invoice } from "@/types/invoice";
-import { Account } from "@/types/account";
+// import { Account } from "@/types/account";
 
 export interface PaymentReconciliationSheetOverrideProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   facilityId: string;
   invoice?: Invoice;
-  account?: Account | string;
+  // account?: Account | string;
+  amount: string;
   accountId: string;
   isCreditNote?: boolean;
   __base?: React.ComponentType<PaymentReconciliationSheetOverrideProps>;
@@ -120,7 +121,7 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       );
     }
 
-    if (props.account || props.accountId) {
+    if (props.accountId) {
       if (!urlMode && isInitialized) {
         setUrlParam("mode", "pinelabs");
       }
@@ -128,7 +129,7 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       return (
         <PineLabsAccountPayment
           facilityId={props.facilityId}
-          account={props.account ?? props.accountId}
+          account={props.accountId}
           autoOpen={true}
           isCreditNote={props.isCreditNote}
           onSwitchToManual={() => {

@@ -1,5 +1,5 @@
 import { CreditCard, QrCode, Smartphone, Info, ArrowUpLeft } from "lucide-react";
-import { FC, useCallback, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
@@ -22,7 +22,7 @@ import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { LocationPicker } from "@/components/payment/LocationPicker";
+// import { LocationPicker } from "@/components/payment/LocationPicker";
 import { TerminalSelect } from "@/components/payment/TerminalSelect";
 import {
   FailureView,
@@ -31,7 +31,7 @@ import {
   TimedOutView,
 } from "@/components/payment/PaymentDialog";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
-import { LocationRead } from "@/types/location";
+// import { LocationRead } from "@/types/location";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
@@ -41,9 +41,11 @@ import {
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 import { Account } from "@/types/account";
+import { Device } from "@/types/device";
 import { Loader2Icon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { validateTerminalOnSubmit } from "@/lib/errors";
 
 
 export type PineLabsAccountPaymentProps = {
@@ -53,6 +55,7 @@ export type PineLabsAccountPaymentProps = {
   isCreditNote?: boolean;
   onClose?: () => void;
   onSuccess?: () => void;
+  showTrigger?: boolean;
   onSwitchToManual?: () => void;
 };
 
@@ -86,16 +89,18 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   onClose,
   onSuccess,
   onSwitchToManual,
+  // showTrigger = true,
 }) => {
 
   const { t } = useTranslation(I18NNAMESPACE);
   const queryClient = useQueryClient();
 
-  const isAccountString = typeof accountProp === "string";
-  const accountId = isAccountString ? accountProp : accountProp?.id;
+  const accountId = useMemo(() => {
+    return typeof accountProp === "string" ? accountProp : accountProp?.id;
+  }, [accountProp]);
 
   const {
-    data: fetchedAccount,
+    data: account,
     isLoading: accountLoading,
     error: accountError,
   } = useQuery({
@@ -103,10 +108,8 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     queryFn: () => {
       return apis.accounts.retrieve(facilityId, accountId!);
     },
-    enabled: isAccountString && !!accountId,
+    enabled: !!accountId,
   });
-
-  const account = isAccountString ? fetchedAccount : (accountProp as Account);
 
   // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
@@ -114,17 +117,21 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<string>(
     PAYMENT_METHODS[0].value
   );
-  const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
-    null
-  );
+  // const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
+  //   null
+  // );
   const [selectedTerminal, setSelectedTerminal] = useState<string>();
+  const [selectedTerminalData, setSelectedTerminalData] = useState<Device | null>(null);
   const [prId, setPrId] = useState<string | null>(null);
   const [settledPr, setSettledPr] = useState<PaymentReconciliation | null>(
     null
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
-  const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
+  const amountDue = useMemo(
+    () => (account ? parseFloat(account.total_balance || "0") : 0),
+    [account]
+  );
   const displayAmount = parseFloat(tenderedAmount) || 0;
 
   const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +157,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
 
       // Invalidate queries to refresh account data
       queryClient.invalidateQueries({
-        queryKey: ["account", account.id],
+        queryKey: ["account", account?.id],
       });
       queryClient.invalidateQueries({
         queryKey: ["payments", account.id],
@@ -187,6 +194,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const resetSheetState = useCallback(() => {
     setPaymentMethod(PAYMENT_METHODS[0].value);
     setSelectedTerminal(undefined);
+    setSelectedTerminalData(null);
     setTenderedAmount("");
     setPrId(null);
     setSettledPr(null);
@@ -204,9 +212,9 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       toast.error(t("error_please_select_terminal"));
       return null;
     }
-
-    if (!selectedLocation) {
-      toast.error(t("error_please_select_location"));
+    const validationError = validateTerminalOnSubmit(selectedTerminalData);
+    if (validationError) {
+      toast.error(validationError);
       return null;
     }
 
@@ -238,11 +246,22 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       is_credit_note: isCreditNote,
       account: account.id,
       target_invoice: undefined,
-      location: selectedLocation.id,
+      location: selectedTerminalData?.current_location?.id ?? null,
       disposition: null,
       note: null,
+      ...(selectedTerminalData?.care_metadata && {
+        metadata: selectedTerminalData.care_metadata,
+      }),
     };
-  }, [tenderedAmount, account?.id, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
+  }, [
+    tenderedAmount,
+    account?.id ?? "",
+    selectedTerminal,
+    selectedTerminalData,
+    paymentMethod,
+    isCreditNote,
+    t,
+  ]);
 
   // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
@@ -324,7 +343,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
-    enabled: isOpen && isFormStep && !!selectedTerminal && !!selectedLocation && !!tenderedAmount && !uploadTransactionMutation.isPending,
+    enabled:
+      isOpen &&
+      isFormStep &&
+      !!selectedTerminal &&
+      !!tenderedAmount &&
+      !uploadTransactionMutation.isPending,
     onTrigger: handleCollectPayment,
   });
 
@@ -340,7 +364,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   });
 
   // Show loading state while fetching account
-  if (isAccountString && accountLoading) {
+  if (accountLoading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-6">
@@ -354,14 +378,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   }
 
   // Show error state if account fetch failed
-  if (accountError || (isAccountString && !account)) {
+  if (accountError || !account) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <Card className="w-96">
           <CardContent className="py-12 text-center space-y-4">
-            <p className="text-red-600">
-              {t("error_loading_account")}
-            </p>
+            <p className="text-red-600">{t("error_loading_account")}</p>
             {accountError && (
               <p className="text-sm text-gray-500">{String(accountError)}</p>
             )}
@@ -374,10 +396,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     );
   }
 
-  // Return null if account still not available
-  if (!account) {
-    return null;
-  }
 
   return (
     <Sheet open={isOpen} onOpenChange={handleOpenChange}>
@@ -413,9 +431,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
           <div className="pt-4">
             <button
               type="button"
-              onClick={() => {
-                onSwitchToManual?.();
-              }}
+              onClick={() => onSwitchToManual?.()}
               className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
             >
               <ArrowUpLeft className="h-4 w-4" />
@@ -548,9 +564,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                 )}
               </div>
 
-              {/* Location Selection */}
-
-              <div className="space-y-2 ">
+              {/* <div className="space-y-2 ">
                 <Label className="text-gray-950">{t("location")}</Label>
                 <LocationPicker
                   facilityId={facilityId}
@@ -560,7 +574,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                   className="w-full"
                   data-state="open"
                 />
-              </div>
+              </div> */}
 
               {/* Terminal Selection */}
               <div className="space-y-2">
@@ -569,6 +583,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                   facilityId={facilityId}
                   value={selectedTerminal}
                   onValueChange={setSelectedTerminal}
+                  onTerminalDataChange={setSelectedTerminalData}
                 />
               </div>
             </div>
@@ -612,7 +627,11 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               <Button
                 variant="primary"
                 onClick={handleCollectPayment}
-                disabled={!selectedTerminal || !selectedLocation || !tenderedAmount || uploadTransactionMutation.isPending}
+                disabled={
+                  !selectedTerminal ||
+                  !tenderedAmount ||
+                  uploadTransactionMutation.isPending
+                }
                 loading={uploadTransactionMutation.isPending}
                 aria-keyshortcuts="Shift+Enter"
               >
