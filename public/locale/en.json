@@ -203,5 +203,10 @@
 
   "cancelling_transaction": "Cancelling Transaction...",
   "record_credit_note_via_pinelabs": "Record Credit Note via Pinelabs",
-  "record_credit_note_amount": "Credit Note Amount"
+  "record_credit_note_amount": "Credit Note Amount",
+  "client_id": "Client ID",
+  "store_id": "Store ID",
+  "client_id_placeholder": "Enter client ID",
+  "store_id_placeholder": "Enter store ID",
+  "device_configuration_title": "Pinelabs POS Device Configuration"
 }

@@ -10,6 +10,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import PluginComponent from "@/components/ui/plug-component";
+import { useTranslation } from "react-i18next";
+import { I18NNAMESPACE } from "@/lib/constants";
+
 
 interface ConfigureFormProps {
     metadata: Record<string, any>;
@@ -29,6 +32,8 @@ export const PinelabsDeviceConfigurationForm = ({
             is_active: metadata?.is_active ?? true,
         },
     });
+    
+      const { t } = useTranslation(I18NNAMESPACE);
 
     const handleChange = (key: string, value: unknown) => {
         const newMetadata = { ...metadata, [key]: value };
@@ -39,7 +44,7 @@ export const PinelabsDeviceConfigurationForm = ({
         <PluginComponent>
             <div className="space-y-1">
                 {/* Pinelabs Terminals Section */}
-                <h2 className="text-sm font-medium text-gray-500">Pinelabs Terminals</h2>
+                <h2 className="text-sm font-medium text-gray-500">{t("device_configuration_title")}</h2>
 
                 <div className="rounded-lg">
                     <Form {...form}>
@@ -53,12 +58,12 @@ export const PinelabsDeviceConfigurationForm = ({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-gray-700 font-medium">
-                                                Client ID
+                                                {t("client_id")}
                                                 <span className="text-red-500 ml-1">*</span>
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
-                                                    placeholder="Enter client ID"
+                                                    placeholder={t("client_id_placeholder")}
                                                     className="mt-2 bg-white border-gray-300"
                                                     {...field}
                                                     onChange={(e) => {
@@ -79,12 +84,12 @@ export const PinelabsDeviceConfigurationForm = ({
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel className="text-gray-700 font-medium">
-                                                Store ID
+                                                {t("store_id")}
                                                 <span className="text-red-500 ml-1">*</span>
                                             </FormLabel>
                                             <FormControl>
                                                 <Input
-                                                    placeholder="Enter store ID"
+                                                    placeholder={t("store_id_placeholder")}
                                                     className="mt-2 bg-white border-gray-300"
                                                     {...field}
                                                     onChange={(e) => {

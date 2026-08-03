@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 import PluginComponent from "@/components/ui/plug-component";
+import { useTranslation } from "react-i18next";
+import { I18NNAMESPACE } from "@/lib/constants";
 
 interface Props {
   device: {
@@ -19,14 +21,14 @@ interface Props {
 export const PinelabsShowPageCard = ({
   device,
 }: Props) => {
-//   const { t } = useTranslation();
+  const { t } = useTranslation(I18NNAMESPACE);
 
   return (
     <PluginComponent>
       {/* Outer Card with Header */}
       <Card>
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle>Pinelabs Configuration</CardTitle>
+          <CardTitle>{t("device_configuration_title")}</CardTitle>
         </CardHeader>
 
         {/* Inner Content Area */}
@@ -37,7 +39,7 @@ export const PinelabsShowPageCard = ({
             {/* Client ID */}
             <div>
               <h4 className="text-sm font-medium text-gray-600 mb-2">
-                Client ID
+                {t("client_id")}
               </h4>
               <p className="text-base font-medium text-gray-900">
                 {device.care_metadata.client_id || "-"}
@@ -47,7 +49,7 @@ export const PinelabsShowPageCard = ({
             {/* Store ID */}
             <div>
               <h4 className="text-sm font-medium text-gray-600 mb-2">
-                Store ID
+                {t("store_id")}
               </h4>
               <p className="text-base font-medium text-gray-900">
                 {device.care_metadata.store_id || "-"}
