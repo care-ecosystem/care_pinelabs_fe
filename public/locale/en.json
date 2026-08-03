@@ -112,6 +112,7 @@
   "payment_initiated_date_time": "Payment Initiated Date & Time",
   "last_updated_date_time": "Last Updated Date & Time",
   "reference_number": "Reference Number",
+  "transaction_number": "Transaction Number",
   "terminal": "Terminal",
   "account": "Account",
   "invoice_number": "Invoice Number",

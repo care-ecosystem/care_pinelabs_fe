@@ -40,6 +40,10 @@ const PineLabsPaymentPage: FC<PineLabsPaymentPageProps> = ({
     navigate(`/facility/${facilityId}/billing/invoices/${invoiceId}`);
   };
 
+  const handlePaymentSheetClose = () => {
+    handleBackToInvoice();
+  };
+
   if (isLoading) {
     return (
       <div className="container mx-auto py-6">
@@ -100,6 +104,7 @@ const PineLabsPaymentPage: FC<PineLabsPaymentPageProps> = ({
           facilityId={facilityId}
           invoice={invoice}
           autoOpen={true}
+          onClose={handlePaymentSheetClose}
         />
       </div>
     </div>

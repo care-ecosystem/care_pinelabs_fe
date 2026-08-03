@@ -125,6 +125,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
 
   const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
+  const displayAmount = parseFloat(tenderedAmount) || 0;
 
   const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -174,6 +175,8 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   });
 
   const livePr = settledPr ?? polledPr;
+  const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
+  const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
   const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
   const showFailure =
     livePr?.outcome === PaymentReconciliationOutcome.error ||
@@ -193,9 +196,9 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   // Build payment payload for Pine Labs
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
     if (!account) {
-    toast.error(t("error_account_not_found"));
-    return null;
-  }
+      toast.error(t("error_account_not_found"));
+      return null;
+    }
 
     if (!selectedTerminal) {
       toast.error(t("error_please_select_terminal"));
@@ -433,18 +436,20 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
                 <FailureView
                   pr={livePr}
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
+                  amount={displayAmount}
                 />
               ) : pollingTimedOut ? (
                 <TimedOutView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
+                  amount={displayAmount}
                 />
               ) : (
                 <InProgressView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amountDue}
+                  amount={displayAmount}
                   isPolling={isPolling}
+                  transactionNumber={transactionNumber}
+                  transactionReferenceId={transactionReferenceId}
                 />
               )}
             </div>
@@ -521,7 +526,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
               {/* Advance Amount Input */}
               <div className="space-y-2">
                 <Label className="text-gray-950">
-                {t("advance_amount")}
+                  {t("advance_amount")}
                 </Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
