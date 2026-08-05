@@ -24,7 +24,7 @@
 
   "payment_method_debit_card": "Debit Card",
   "payment_method_credit_card": "Credit Card",
-  "payment_method_cash_upi": "Cash / UPI",
+  "payment_method_cash_upi": "Cash",
   "payment_method_bharat_qr": "Bharat QR",
   "payment_method_card": "Card",
   "payment_method_upi": "UPI",

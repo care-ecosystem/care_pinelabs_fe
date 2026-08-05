@@ -1,6 +1,7 @@
-import { Banknote, CreditCard, QrCode, Smartphone, type LucideIcon } from "lucide-react";
+import { Banknote, CreditCard, QrCode, ScanQrCode, type LucideIcon } from "lucide-react";
 
 import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliation";
+
 
 /**
  * Shared mapping of payment method enums to translation keys.
@@ -37,7 +38,7 @@ export const DEFAULT_PINELABS_PAYMENT_MODE_ICON: LucideIcon = CreditCard;
 export const PINELABS_PAYMENT_MODE_ICONS: Record<string, LucideIcon> = {
   [PinelabsPaymentModeEnum.CARD]: CreditCard,
   [PinelabsPaymentModeEnum.CASH]: Banknote,
-  [PinelabsPaymentModeEnum.UPI_SALE]: Smartphone,
+  [PinelabsPaymentModeEnum.UPI_SALE]: ScanQrCode,
   [PinelabsPaymentModeEnum.UPI_BHARAT_QR]: QrCode,
 };
 

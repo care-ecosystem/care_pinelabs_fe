@@ -1,7 +1,7 @@
-import { ArrowUpLeft, CreditCard, QrCode, Smartphone } from "lucide-react";
-import { FC, useCallback, useState } from "react";
+import { ArrowUpLeft } from "lucide-react";
+import { FC, useCallback, useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -14,12 +14,16 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Info } from "lucide-react";
+import { Info, Loader2Icon } from "lucide-react";
 
 import { apis } from "@/apis";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { formatCurrency, toast } from "@/lib/utils";
 import { getPinelabsErrorMessage } from "@/lib/errors";
+import {
+  PINELABS_PAYMENT_MODE_ICONS,
+  PINELABS_PAYMENT_MODES,
+} from "@/lib/paymentMethods";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
 import { LocationPicker } from "@/components/payment/LocationPicker";
 import { TerminalSelect } from "@/components/payment/TerminalSelect";
@@ -29,24 +33,25 @@ import {
   SuccessView,
   TimedOutView,
 } from "@/components/payment/PaymentDialog";
-import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
+import { UploadTransactionRequest } from "@/types/gateway";
 import { Invoice } from "@/types/invoice";
 import { Account } from "@/types/account";
 import { LocationRead } from "@/types/location";
+import { Device } from "@/types/device";
 import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
   PaymentReconciliationOutcome,
-  PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 import { ShortcutBadge } from "@/components/common/ShortcutBadge";
 import { useButtonShortcut } from "@/hooks/useButtonShortcut";
+import { Input } from "@/components/ui/input";
 
 
 /**
- * UPDATED: PaymentSheet now accepts either invoice OR account
+ * UPDATED: PaymentSheet now fetches payment methods from Pinelabs config
  */
 export type PaymentSheetProps = {
   facilityId: string;
@@ -57,27 +62,6 @@ export type PaymentSheetProps = {
   onClose?: () => void;
   onSwitchToManual?: () => void;
 };
-
-const PAYMENT_METHODS = [
-  {
-    value: "bharat_qr",
-    method: PaymentReconciliationPaymentMethod.ddpo,
-    mode: PaymentMode.BHARAT_QR,
-    icon: QrCode,
-  },
-  {
-    value: "card",
-    method: PaymentReconciliationPaymentMethod.debc,
-    mode: PaymentMode.CARD,
-    icon: CreditCard,
-  },
-  {
-    value: "upi",
-    method: PaymentReconciliationPaymentMethod.ddpo,
-    mode: PaymentMode.UPI,
-    icon: Smartphone,
-  },
-] as const;
 
 export const PaymentSheet: FC<PaymentSheetProps> = ({
   facilityId,
@@ -96,9 +80,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const queryClient = useQueryClient();
 
   const [isOpen, setIsOpen] = useState(autoOpen);
-  const [paymentMethod, setPaymentMethod] = useState<string>(
-    PAYMENT_METHODS[0].value
-  );
+  const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [selectedLocation, setSelectedLocation] = useState<LocationRead | null>(
     null
   );
@@ -108,9 +90,50 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     null
   );
   const [pollingTimedOut, setPollingTimedOut] = useState(false);
-
+  const [tenderedAmount, setTenderedAmount] = useState<string>("");
+  const [submittedAmount, setSubmittedAmount] = useState<number | null>(null);
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
+  const displayAmount = tenderedAmount ? parseFloat(tenderedAmount) : amount;
+
+  const {
+    data: pinelabsConfig,
+    isLoading: configLoading,
+    error: configError,
+  } = useQuery({
+    queryKey: ["pinelabs_config", facilityId],
+    queryFn: () => apis.pinelabs_config.get(facilityId),
+    enabled: !!facilityId && isOpen,
+  });
+
+  const allowPartialPayment = pinelabsConfig?.allow_partial_payment ?? false;
+
+  useEffect(() => {
+    if (pinelabsConfig?.payment_method_mappings && pinelabsConfig.payment_method_mappings.length > 0) {
+      const defaultMethod = pinelabsConfig.payment_method_mappings.find(
+        (m) => m.is_default === true
+      );
+
+      if (defaultMethod) {
+        setPaymentMethod(defaultMethod.pinelabs_method);
+      } else if (pinelabsConfig.payment_method_mappings.length > 0) {
+        setPaymentMethod(pinelabsConfig.payment_method_mappings[0].pinelabs_method);
+      }
+    }
+  }, [pinelabsConfig?.payment_method_mappings]);
+
+  const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const regex = /^\d*\.?\d{0,2}$/;  
+    if (value !== "" && !regex.test(value)) {
+      return;
+    }
+
+    if (value !== "" && parseFloat(value) > amount) {
+      return;
+    }
+    setTenderedAmount(value);
+  };
 
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
@@ -155,11 +178,23 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
   const resetSheetState = useCallback(() => {
-    setPaymentMethod(PAYMENT_METHODS[0].value);
+    setPaymentMethod("");
     setSelectedTerminal(undefined);
+    setSelectedLocation(null);
+    setTenderedAmount("");
     setPrId(null);
     setSettledPr(null);
     setPollingTimedOut(false);
+    setSubmittedAmount(null);
+  }, []);
+
+  const handleDeviceSelected = useCallback((device: Device) => {
+    if (device.current_location) {
+      const locationAsRead = device.current_location as unknown as LocationRead;
+      setSelectedLocation(locationAsRead);
+    } else {
+      setSelectedLocation(null);
+    }
   }, []);
 
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
@@ -178,23 +213,31 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return null;
     }
 
-    const selectedMethodObj = PAYMENT_METHODS.find(
-      (m) => m.value === paymentMethod
-    );
-
-    if (!selectedMethodObj) {
+    if (!paymentMethod) {
       toast.error(t("error_invalid_payment_method"));
       return null;
     }
 
+    const selectedMethodMapping = pinelabsConfig?.payment_method_mappings.find(
+      (m) => m.pinelabs_method === paymentMethod
+    );
+
+    if (!selectedMethodMapping) {
+      toast.error(t("error_invalid_payment_method"));
+      return null;
+    }
+    const paymentAmount = allowPartialPayment && tenderedAmount
+      ? parseFloat(tenderedAmount)
+      : amount;
+
     return {
       terminal: selectedTerminal,
-      payment_mode: selectedMethodObj.mode,
+      payment_mode: paymentMethod,
       reconciliation_type: PaymentReconciliationType.payment,
       kind: PaymentReconciliationKind.online,
       issuer_type: PaymentReconciliationIssuerType.patient,
-      method: selectedMethodObj.method,
-      tendered_amount: amount.toFixed(2),
+      method: selectedMethodMapping.care_method,
+      tendered_amount: paymentAmount.toFixed(2),
       returned_amount: "0",
       is_credit_note: isCreditNote,
       account: invoice.account.id,
@@ -203,7 +246,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       disposition: null,
       note: null,
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, isCreditNote, t]);
+  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, pinelabsConfig?.payment_method_mappings, tenderedAmount, allowPartialPayment, t]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -241,6 +284,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleCollectPayment = () => {
     const payload = buildUploadPayload();
     if (!payload) return;
+    setSubmittedAmount(parseFloat(payload.tendered_amount));
     uploadTransactionMutation.mutate(payload);
   };
 
@@ -267,14 +311,30 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     }
   };
 
-
-  const currentPaymentMethodLabel = t(`payment_method_${paymentMethod}`);
-
   const isFormStep =
     !showSuccess &&
     !showFailure &&
     !pollingTimedOut &&
     !isTransactionInProgress;
+
+  const getPaymentMethodLabel = (pinelabsMethod: string) => {
+    const mode = PINELABS_PAYMENT_MODES.find((m) => m.value === pinelabsMethod);
+    return mode ? t(mode.labelKey) : pinelabsMethod;
+  };
+
+  const currentPaymentMethodLabel = getPaymentMethodLabel(paymentMethod);
+
+  const configuredPinelabsMethods = useMemo(() => {
+    const configuredValues = new Set(
+      (pinelabsConfig?.payment_method_mappings ?? []).map(
+        (m) => m.pinelabs_method
+      )
+    );
+    return PINELABS_PAYMENT_MODES.filter((mode) =>
+      configuredValues.has(mode.value)
+    );
+  }, [pinelabsConfig?.payment_method_mappings]);
+
   useButtonShortcut({
     key: "Enter",
     shiftKey: true,
@@ -336,17 +396,17 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <FailureView
                   pr={livePr}
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={submittedAmount ?? amount}
                 />
               ) : pollingTimedOut ? (
                 <TimedOutView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={submittedAmount ?? amount}
                 />
               ) : (
                 <InProgressView
                   paymentMethodLabel={currentPaymentMethodLabel}
-                  amount={amount}
+                  amount={submittedAmount ?? amount}
                   isPolling={isPolling}
                   transactionNumber={transactionNumber}
                   transactionReferenceId={transactionReferenceId}
@@ -383,44 +443,111 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <Info className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-900 leading-relaxed">
                   {t("payment_warning_message", {
-                    amount: formatCurrency(amount),
+                    amount: formatCurrency(
+                      allowPartialPayment && tenderedAmount
+                        ? parseFloat(tenderedAmount) || amount
+                        : amount,
+                    ),
                     paymentMethod: currentPaymentMethodLabel,
                   })}
                 </p>
               </div>
 
-              {/* Payment Method */}
+              {/* Payment Method - DYNAMIC from Pinelabs Config */}
               <div className="space-y-2">
                 <Label className="text-gray-950">{t("payment_method")}</Label>
-                <RadioGroup
-                  value={paymentMethod}
-                  onValueChange={setPaymentMethod}
-                  className="grid grid-cols-3 gap-3"
-                >
-                  {PAYMENT_METHODS.map((method) => {
-                    const Icon = method.icon;
-                    return (
-                      <Label
-                        key={method.value}
-                        className="relative flex cursor-pointer flex-col items-center 
-                                  rounded-md border border-gray-400 shadow-sm p-2.5 
-                                  outline-none has-checked:border-primary-600 has-checked:bg-green-50"
-                      >
-                        <RadioGroupItem
-                          value={method.value}
-                          className="absolute left-2 top-2"
-                          aria-label={`payment-method-${method.value}`}
-                        />
-                        <div className="grid grow justify-items-center gap-1">
-                          <Icon className="size-5 text-gray-600" />
-                          <span className="text-sm font-medium text-center text-gray-950">
-                            {t(`payment_method_${method.value}`)}
-                          </span>
-                        </div>
+                {configLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-4 border rounded bg-blue-50">
+                    <Loader2Icon className="size-4 animate-spin text-blue-600" />
+                    <p className="text-sm text-blue-600">{t("loading")}</p>
+                  </div>
+                ) : configError ? (
+                  <div className="text-sm text-red-600 py-4 border border-red-200 rounded px-3 bg-red-50">
+                    {t("failed_to_load_payment_methods")}
+                  </div>
+                ) : configuredPinelabsMethods.length > 0 ? (
+                  <RadioGroup
+                    value={paymentMethod}
+                    onValueChange={setPaymentMethod}
+                    className="grid grid-cols-3 gap-3"
+                  >
+                    {configuredPinelabsMethods.map((mode) => {
+                      const Icon = PINELABS_PAYMENT_MODE_ICONS[mode.value];
+                      const isDefault = pinelabsConfig?.payment_method_mappings.some(
+                        (m) => m.pinelabs_method === mode.value && m.is_default
+                      );
+
+                      return (
+                        <Label
+                          key={mode.value}
+                          className="relative flex cursor-pointer flex-col items-center rounded-md border border-gray-400 shadow-sm p-2.5 outline-none has-checked:border-primary-600 has-checked:bg-green-50"
+                        >
+                          <RadioGroupItem
+                            value={mode.value}
+                            className="absolute left-2 top-2"
+                            aria-label={`payment-method-${mode.value}`}
+                          />
+                          <div className="grid grow justify-items-center gap-1">
+                            <Icon className="size-5 text-gray-600" />
+                            <span className="text-sm font-medium text-center text-gray-950">
+                              {t(mode.labelKey)}
+                            </span>
+                            {isDefault && (
+                              <span className="text-xs text-green-600 font-semibold">
+                                {t("default")}
+                              </span>
+                            )}
+                          </div>
+                        </Label>
+                      );
+                    })}
+                  </RadioGroup>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 border rounded bg-gray-50 text-center">
+                    {t("no_payment_methods_configured")}
+                  </div>
+                )}
+              </div>
+              {/* Partial Payment Amount Input - CONDITIONAL */}
+              {allowPartialPayment && (
+                <div className="space-y-2">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-gray-950">
+                        {t("amount")}
                       </Label>
-                    );
-                  })}
-                </RadioGroup>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-700 font-medium">
+                          ₹
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder={formatCurrency(amount)}
+                          value={tenderedAmount}
+                          onChange={handleTenderedAmountChange}
+                          className="w-full pl-8"
+                        />
+                      </div>
+                      {tenderedAmount && (
+                        <p className="text-xs text-gray-500">
+                          {t("amount")}: {formatCurrency(parseFloat(tenderedAmount) || 0)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Terminal Selection */}
+              <div className="space-y-2">
+                <Label className="text-gray-950">{t("select_terminal")}</Label>
+                <TerminalSelect
+                  facilityId={facilityId}
+                  value={selectedTerminal}
+                  onValueChange={setSelectedTerminal}
+                  onDeviceSelected={handleDeviceSelected}
+                />
               </div>
 
               {/* Location Selection */}
@@ -430,18 +557,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                   facilityId={facilityId}
                   value={selectedLocation}
                   onValueChange={setSelectedLocation}
-                  placeholder={t("select_location")}
                   className="w-full"
-                />
-              </div>
-
-              {/* Terminal Selection */}
-              <div className="space-y-2">
-                <Label className="text-gray-950">{t("select_terminal")}</Label>
-                <TerminalSelect
-                  facilityId={facilityId}
-                  value={selectedTerminal}
-                  onValueChange={setSelectedTerminal}
                 />
               </div>
             </div>
@@ -484,7 +600,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
                 <Button
                   variant="primary"
                   onClick={handleCollectPayment}
-                  disabled={!selectedTerminal || !selectedLocation ||uploadTransactionMutation.isPending}
+                  disabled={!selectedTerminal || !selectedLocation || uploadTransactionMutation.isPending}
                   loading={uploadTransactionMutation.isPending}
                   aria-keyshortcuts="Shift+Enter"
                 >
@@ -501,5 +617,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
 };
 
 export default PaymentSheet;
+
 
 
