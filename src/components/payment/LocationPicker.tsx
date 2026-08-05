@@ -76,7 +76,7 @@ export const LocationPicker: FC<LocationPickerProps> = ({
         name: searchQuery || undefined,
         mine: currentParent ? undefined : true,
       }),
-    enabled: !!facilityId,
+    enabled: !!facilityId && open,
     placeholderData: keepPreviousData,
   });
 
@@ -348,3 +348,5 @@ export const LocationPicker: FC<LocationPickerProps> = ({
     </Popover>
   );
 };
+
+export default LocationPicker;

@@ -44,7 +44,7 @@ import { UseFormReturn } from "react-hook-form";
 import { apis } from "@/apis";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { getPaymentMethodLabel } from "@/lib/paymentMethods";
+import { getPaymentMethodLabelKey } from "@/lib/paymentMethods";
 import { MetaTable } from "@/components/transactions/MetaTable";
 
 export type PaymentDialogProps = {
@@ -247,7 +247,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         issuer_type:
           (values.issuer_type as PaymentReconciliationIssuerType) ??
           PaymentReconciliationIssuerType.patient,
-        method: paymentMethod as PaymentReconciliationPaymentMethod,
+        method: paymentMethod,
         tendered_amount: tenderedAmount,
         returned_amount: returnedAmount,
         is_credit_note: Boolean(values.is_credit_note ?? false),
@@ -412,22 +412,22 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         {showSuccess && livePr ? (
           <SuccessView
             pr={livePr}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
           />
         ) : showFailure && livePr ? (
           <FailureView
             pr={livePr}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         ) : pollingTimedOut ? (
           <TimedOutView
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         ) : isTransactionInProgress ? (
           <InProgressView
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
             isPolling={isPolling}
             transactionNumber={transactionNumber}
@@ -438,7 +438,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
             facilityId={facilityId}
             selectedTerminal={selectedTerminal}
             onTerminalChange={setSelectedTerminal}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         )}

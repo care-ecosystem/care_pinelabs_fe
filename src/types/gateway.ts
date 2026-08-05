@@ -2,7 +2,6 @@ import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
-  PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 
@@ -14,12 +13,12 @@ export enum PaymentMode {
 
 export type UploadTransactionRequest = {
   terminal: string;
-  payment_mode?: PaymentMode;
+  payment_mode?: string;
 
   reconciliation_type: PaymentReconciliationType;
   kind: PaymentReconciliationKind;
   issuer_type: PaymentReconciliationIssuerType;
-  method: PaymentReconciliationPaymentMethod;
+  method: string;
   tendered_amount: string;
   returned_amount: string;
   is_credit_note?: boolean;

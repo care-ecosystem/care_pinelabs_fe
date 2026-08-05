@@ -41,5 +41,5 @@ export interface DeviceListParams {
   limit?: number;
   offset?: number;
   status?: string;
-  search?: string;
+  search_text?: string;
 }
