@@ -85,8 +85,8 @@ const CARE_METHOD_OPTIONS = getPaymentMethodOptions();
 
 // Payment flow options
 const PAYMENT_FLOW_OPTIONS = [
-  { value: "pinelabs", label: "Pinelabs" },
-  { value: "native", label: "Native" },
+  { value: "pinelabs", labelKey: "payment_flow_pinelabs" },
+  { value: "native", labelKey: "payment_flow_native" },
 ];
 
 const SEARCH_DEBOUNCE_INTERVAL = 500;
@@ -263,12 +263,11 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   // Create config mutation
   const createConfigMutation = useMutation({
     mutationFn: (data: CreatePinelabsConfigBody) => {
-      // ✅ Remove pos_terminals from create payload - they're linked separately
       const { pos_terminals, ...configData } = data;
       return apis.pinelabs_config.create(configData as CreatePinelabsConfigBody);
     },
     onSuccess: (createdConfig) => {
-      toast.success("Configuration created successfully");
+      toast.success(t("configuration_created_successfully"));
 
       const terminalDeviceIds = (createConfigForm.getValues("pos_terminals") ?? [])
         .map((t) => t.device_id);
@@ -296,18 +295,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     onError: (error: any) => {
       const errorMsg =
         error?.response?.data?.errors?.[0]?.msg ||
-        "Failed to create configuration";
+        t("failed_to_create_configuration");
       toast.error(errorMsg);
       console.error(error);
     },
   });
 
-  // ✅ Sync the full POS terminal list (device_ids) to the config. Invoked
-  // directly from the terminals screen's Save button (against an existing
-  // config), and bundled into create/update submits when terminals changed.
-  // Navigation on success is handled per call-site via mutate()'s options,
-  // since "save terminals" alone should behave differently from "save
-  // terminals as part of the whole config".
   const linkTerminalsMutation = useMutation({
     mutationFn: async (params: { configId: string; deviceIds: string[] }) => {
       if (!params.configId) {
@@ -316,7 +309,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       return apis.pinelabs_config.linkTerminals(params.configId, params.deviceIds);
     },
     onSuccess: (_data, variables) => {
-      toast.success("POS terminals updated successfully");
+      toast.success(t("pos_terminals_updated_successfully"));
       setTerminalsBaseline(variables.deviceIds);
       setTimeout(() => {
         refetchConfig();
@@ -326,7 +319,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     onError: (error: any) => {
       const errorMsg =
         error?.response?.data?.errors?.[0]?.msg ||
-        "Failed to update POS terminals";
+        t("failed_to_update_pos_terminals");
       toast.error(errorMsg);
       console.error(error);
     },
@@ -341,7 +334,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       return apis.pinelabs_config.update(config.id, configData);
     },
     onSuccess: (_updatedConfig, variables) => {
-      toast.success("Configuration updated successfully");
+      toast.success(t("configuration_updated_successfully"));
       queryClient.invalidateQueries({
         queryKey: ["pinelabs_config", facility?.id],
       });
@@ -366,7 +359,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     onError: (error: any) => {
       const errorMsg =
         error?.response?.data?.errors?.[0]?.msg ||
-        "Failed to update configuration";
+        t("failed_to_update_configuration");
       toast.error(errorMsg);
       console.error(error);
     },
@@ -375,7 +368,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   const onCreateConfigSubmit = (data: CreatePinelabsConfigBody) => {
     const hasDefault = data.payment_method_mappings.some((m) => m.is_default);
     if (!hasDefault) {
-      toast.error("At least one payment method must be set as default");
+      toast.error(t("at_least_one_payment_method_must_be_default"));
       return;
     }
 
@@ -425,10 +418,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     }
   };
 
-  // Once a configuration exists, always land directly in the editable
-  // form when the sheet is opened - there's no separate read-only/edit-button view.
-  // Waits for the linked-terminals fetch to settle so the form (and its dirty
-  // baseline) is populated once, with complete data, instead of resetting twice.
   useEffect(() => {
     const terminalsSettled = posTerminals !== undefined || isTerminalsError;
     if (open && config && sheetView === "main" && terminalsSettled) {
@@ -458,9 +447,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     );
   };
 
-  // First care method not already used by any existing mapping - used to
-  // default a newly-added card to a method that isn't already taken, so
-  // "Add Method" only ever proposes something from the remaining balance.
   const getFirstAvailableCareMethod = () => {
     const selectedMethods = (paymentMethodMappings ?? [])
       .map((mapping) => mapping.care_method)
@@ -471,8 +457,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     );
   };
 
-  // Exclude already-selected terminals from the search results (the search
-  // text itself is applied server-side via search_text)
   const availableDeviceResults = deviceSearchResults.filter((device) => {
     const isAlreadyAdded = terminals?.some(
       (t) => t.device_id === device.id
@@ -501,7 +485,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
           className="hover:bg-gray-100 hover:text-gray-900 flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
         >
           <SettingsIcon className="size-4 text-gray-500" />
-          Configure Pinelabs
+          {t("configure_pinelabs")}
         </button>
       </SheetTrigger>
       <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
@@ -517,14 +501,16 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
             </Button>
           )}
           <SheetTitle>
-            {sheetView === "main" && "Pinelabs Configuration"}
+            {sheetView === "main" && t("pinelabs_configuration")}
             {sheetView === "create-config" &&
-              (editingConfig ? "Edit Configuration" : "Create Configuration")}
-            {sheetView === "terminals" && "POS Terminals"}
+              (editingConfig
+                ? t("edit_configuration")
+                : t("create_configuration"))}
+            {sheetView === "terminals" && t("pos_terminals")}
           </SheetTitle>
           {sheetView === "main" && (
             <SheetDescription>
-              Manage Pinelabs configuration for{" "}
+              {t("manage_pinelabs_config_for")}{" "}
               <strong>{facility.name}</strong>.
             </SheetDescription>
           )}
@@ -537,7 +523,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
               <div className="flex items-center justify-center gap-2 py-12">
                 <Loader2Icon className="size-5 animate-spin text-blue-600" />
                 <p className="text-sm text-gray-600">
-                  Loading configuration...
+                  {t("loading_configuration")}
                 </p>
               </div>
             ) : configNotFound ? (
@@ -546,11 +532,10 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                   <div className="text-center">
                     <SettingsIcon className="size-12 text-gray-300 mx-auto mb-3" />
                     <p className="font-semibold text-lg text-gray-900 mb-1">
-                      No Configuration Found
+                      {t("no_configuration_found")}
                     </p>
                     <p className="text-sm text-gray-600 max-w-sm mx-auto">
-                      Set up your Pinelabs merchant credentials and payment
-                      methods to get started.
+                      {t("setup_pinelabs_credentials_hint")}
                     </p>
                   </div>
                   <Button
@@ -560,7 +545,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                     className="w-full"
                   >
                     <PlusIcon className="size-4 mr-2" />
-                    Create Configuration
+                    {t("create_configuration")}
                   </Button>
                 </div>
               </div>
@@ -578,22 +563,22 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
               >
                 {/* Basic Settings */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Basic Settings</h3>
+                  <h3 className="text-lg font-medium">{t("basic_settings")}</h3>
 
                   <FormField
                     control={createConfigForm.control}
                     name="default_payment_flow"
-                    rules={{ required: "Payment flow is required" }}
+                    rules={{ required: t("payment_flow_required") }}
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel aria-required>Payment Flow</FormLabel>
+                        <FormLabel aria-required>{t("payment_flow")}</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger className="w-full" ref={field.ref}>
-                              <SelectValue placeholder="Select payment flow" />
+                              <SelectValue placeholder={t("select_payment_flow")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -602,13 +587,13 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                 key={option.value}
                                 value={option.value}
                               >
-                                {option.label}
+                                {t(option.labelKey)}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                         <FormDescription>
-                          Choose between Pinelabs or Native payment processing
+                          {t("choose_pinelabs_or_native")}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -618,13 +603,13 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                   <FormField
                     control={createConfigForm.control}
                     name="pinelabs_merchant_id"
-                    rules={{ required: "Merchant ID is required" }}
+                    rules={{ required: t("merchant_id_required") }}
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel aria-required>Merchant ID</FormLabel>
+                        <FormLabel aria-required>{t("merchant_id")}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="e.g., MERCH001"
+                            placeholder={t("merchant_id_placeholder")}
                             {...field}
                             className="font-mono"
                             style={{ fontFamily: MONOSPACE_FONT_STACK }}
@@ -639,13 +624,13 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                     control={createConfigForm.control}
                     name="pinelabs_security_token"
                     rules={{
-                      required: !editingConfig && "Security token is required",
+                      required: !editingConfig && t("security_token_required"),
                     }}
                     render={({ field }) => {
                       const canToggleVisibility = !editingConfig || !!field.value;
                       return (
                         <FormItem className="flex flex-col">
-                          <FormLabel aria-required>Security Token</FormLabel>
+                          <FormLabel aria-required>{t("security_token")}</FormLabel>
                           <FormControl>
                             <div className="relative">
                               <Input
@@ -657,7 +642,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                 placeholder={
                                   editingConfig
                                     ? "••••••••••••••••"
-                                    : "Enter your security token"
+                                    : t("enter_security_token")
                                 }
                                 {...field}
                                 className={canToggleVisibility ? "pr-10" : undefined}
@@ -671,8 +656,8 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                   className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
                                   aria-label={
                                     showSecurityToken
-                                      ? "Hide security token"
-                                      : "Show security token"
+                                      ? t("hide_security_token")
+                                      : t("show_security_token")
                                   }
                                 >
                                   {showSecurityToken ? (
@@ -686,7 +671,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                           </FormControl>
                           {editingConfig && (
                             <FormDescription>
-                              Leave empty to keep existing token
+                              {t("leave_empty_to_keep_existing_token")}
                             </FormDescription>
                           )}
                           <FormMessage />
@@ -698,7 +683,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
 
                 {/* Payment Features */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Payment Features</h3>
+                  <h3 className="text-lg font-medium">{t("payment_features")}</h3>
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField
@@ -707,7 +692,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
                           <div className="space-y-0.5">
-                            <FormLabel>Advance Payment</FormLabel>
+                            <FormLabel>{t("advance_payment")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -725,7 +710,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
                           <div className="space-y-0.5">
-                            <FormLabel>Partial Payment</FormLabel>
+                            <FormLabel>{t("partial_payment")}</FormLabel>
                           </div>
                           <FormControl>
                             <Switch
@@ -741,15 +726,15 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
 
                 {/* POS Terminals */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">POS Terminals</h3>
+                  <h3 className="text-lg font-medium">{t("pos_terminals")}</h3>
 
                   <div className="flex items-center justify-between rounded-md border p-2">
                     <span className="text-sm text-gray-700">
                       {terminalFields.length > 0
-                        ? `${terminalFields.length} terminal${
-                            terminalFields.length > 1 ? "s" : ""
-                          } linked`
-                        : "No terminals linked"}
+                        ? t("terminal_linked_count", {
+                            count: terminalFields.length,
+                          })
+                        : t("no_terminals_linked")}
                     </span>
                     <Button
                       type="button"
@@ -757,14 +742,14 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       size="sm"
                       onClick={() => setSheetView("terminals")}
                     >
-                      Manage Terminals
+                      {t("manage_terminals")}
                     </Button>
                   </div>
                 </div>
 
                 {/* Payment Methods */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium">Payment Methods</h3>
+                  <h3 className="text-lg font-medium">{t("payment_methods")}</h3>
 
                   <div className="space-y-3">
                     {fields.map((field, index) => (
@@ -774,7 +759,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">
-                            Method {index + 1}
+                            {t("method_number", { number: index + 1 })}
                           </span>
                           {fields.length > 1 && (
                             <Button
@@ -783,7 +768,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                               size="icon"
                               onClick={() => remove(index)}
                               className="size-8"
-                              aria-label="Remove method"
+                              aria-label={t("remove_method")}
                             >
                               <Trash2Icon className="size-4" />
                             </Button>
@@ -795,12 +780,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                             control={createConfigForm.control}
                             name={`payment_method_mappings.${index}.care_method`}
                             rules={{
-                              required: "Payment method is required",
+                              required: t("error_payment_method_required"),
                             }}
                             render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel aria-required>
-                                  Care Method
+                                  {t("care_method")}
                                 </FormLabel>
                                 <Select
                                   onValueChange={field.onChange}
@@ -811,7 +796,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                       className="w-full"
                                       ref={field.ref}
                                     >
-                                      <SelectValue placeholder="Select method" />
+                                      <SelectValue placeholder={t("select_method")} />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
@@ -836,12 +821,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                             control={createConfigForm.control}
                             name={`payment_method_mappings.${index}.pinelabs_method`}
                             rules={{
-                              required: "Pinelabs method is required",
+                              required: t("pinelabs_method_required"),
                             }}
                             render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel aria-required>
-                                  Pinelabs Method
+                                  {t("pinelabs_method")}
                                 </FormLabel>
                                 <Select
                                   onValueChange={field.onChange}
@@ -852,7 +837,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                       className="w-full"
                                       ref={field.ref}
                                     >
-                                      <SelectValue placeholder="Select method" />
+                                      <SelectValue placeholder={t("select_method")} />
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
@@ -877,7 +862,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                           name={`payment_method_mappings.${index}.is_default`}
                           render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between ">
-                              <FormLabel>Set as Default</FormLabel>
+                              <FormLabel>{t("set_as_default")}</FormLabel>
                               <FormControl>
                                 <Switch
                                   checked={field.value}
@@ -919,7 +904,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       className="w-full"
                     >
                       <PlusIcon className="mr-2 size-4" />
-                      Add Method
+                      {t("add_method")}
                     </Button>
                   </div>
                 </div>
@@ -942,7 +927,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       updateConfigMutation.isPending
                     }
                   >
-                    Cancel
+                    {t("cancel")}
                   </Button>
                   <Button
                     type="submit"
@@ -957,18 +942,18 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       updateConfigMutation.isPending ? (
                         <>
                           <Loader2Icon className="mr-2 size-4 animate-spin" />
-                          Updating...
+                          {t("updating")}
                         </>
                       ) : (
-                        "Update Configuration"
+                        t("update_configuration")
                       )
                     ) : createConfigMutation.isPending ? (
                       <>
                         <Loader2Icon className="mr-2 size-4 animate-spin" />
-                        Creating...
+                        {t("creating")}
                       </>
                     ) : (
-                      "Create Configuration"
+                      t("create_configuration")
                     )}
                   </Button>
                 </div>
@@ -981,7 +966,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
         {sheetView === "terminals" && (
           <div className="mt-6 space-y-4">
             <div className="space-y-2">
-              <Label>Add Terminal</Label>
+              <Label>{t("add_terminal")}</Label>
               <Popover
                 open={terminalPickerOpen}
                 onOpenChange={(next) => {
@@ -1001,7 +986,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                     )}
                   >
                     <span className="text-gray-500">
-                      Search and select a device
+                      {t("search_and_select_device")}
                     </span>
                     <ChevronDown className="size-4 shrink-0 opacity-50" />
                   </button>
@@ -1012,7 +997,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                 >
                   <Command shouldFilter={false}>
                     <CommandInput
-                      placeholder="Search devices by name..."
+                      placeholder={t("search_devices_by_name")}
                       value={terminalDeviceSearch}
                       onValueChange={setTerminalDeviceSearch}
                       className="outline-hidden border-none ring-0 shadow-none text-base sm:text-sm"
@@ -1020,8 +1005,8 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                     <CommandList>
                       <CommandEmpty>
                         {isSearchingDevices
-                          ? "Searching..."
-                          : "No devices found."}
+                          ? t("searching")
+                          : t("no_devices_found")}
                       </CommandEmpty>
                       <CommandGroup>
                         {availableDeviceResults.map((device) => (
@@ -1055,7 +1040,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
             {!!deviceSearchError && (
               <Alert variant="destructive">
                 <AlertDescription>
-                  Error loading devices. Please try again.
+                  {t("error_loading_devices")}
                 </AlertDescription>
               </Alert>
             )}
@@ -1063,9 +1048,9 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Device</TableHead>
-                  <TableHead>Device ID</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead>{t("device")}</TableHead>
+                  <TableHead>{t("device_id")}</TableHead>
+                  <TableHead className="text-right">{t("actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1075,7 +1060,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       colSpan={3}
                       className="text-center text-gray-500 font-normal"
                     >
-                      No terminals linked yet.
+                      {t("no_terminals_linked_yet")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -1098,7 +1083,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                             variant="ghost"
                             size="icon"
                             onClick={() => removeTerminal(index)}
-                            aria-label="Remove terminal"
+                            aria-label={t("remove_terminal")}
                           >
                             <Trash2Icon className="size-4" />
                           </Button>
@@ -1117,7 +1102,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                 disabled={linkTerminalsMutation.isPending}
                 onClick={() => setSheetView("create-config")}
               >
-                Back
+                {t("back")}
               </Button>
               <Button
                 type="button"
@@ -1142,10 +1127,10 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                 {linkTerminalsMutation.isPending ? (
                   <>
                     <Loader2Icon className="mr-2 size-4 animate-spin" />
-                    Saving...
+                    {t("saving")}
                   </>
                 ) : (
-                  "Save"
+                  t("save")
                 )}
               </Button>
             </div>

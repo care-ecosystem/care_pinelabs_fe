@@ -94,7 +94,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const [submittedAmount, setSubmittedAmount] = useState<number | null>(null);
   const amount =
     Number(invoice.total_gross) - parseFloat(invoice.total_payments || "0");
-  const displayAmount = tenderedAmount ? parseFloat(tenderedAmount) : amount;
 
   const {
     data: pinelabsConfig,
@@ -122,14 +121,19 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     }
   }, [pinelabsConfig?.payment_method_mappings]);
 
+  // Pre-fill the partial-payment amount with the amount due once it's
+  // known, rather than leaving the field empty with a placeholder - the
+  // user can then clear it and type a different amount if they want to.
+  useEffect(() => {
+    if (isOpen && allowPartialPayment) {
+      setTenderedAmount(amount.toFixed(2));
+    }
+  }, [isOpen, allowPartialPayment, amount]);
+
   const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    const regex = /^\d*\.?\d{0,2}$/;  
+    const regex = /^\d*\.?\d{0,2}$/;
     if (value !== "" && !regex.test(value)) {
-      return;
-    }
-
-    if (value !== "" && parseFloat(value) > amount) {
       return;
     }
     setTenderedAmount(value);
@@ -208,11 +212,6 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       return null;
     }
 
-    if (!(amount > 0)) {
-      toast.error(t("error_tendered_amount_must_be_positive"));
-      return null;
-    }
-
     if (!paymentMethod) {
       toast.error(t("error_invalid_payment_method"));
       return null;
@@ -229,6 +228,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     const paymentAmount = allowPartialPayment && tenderedAmount
       ? parseFloat(tenderedAmount)
       : amount;
+
+    if (!(paymentAmount > 0)) {
+      toast.error(t("error_tendered_amount_must_be_positive"));
+      return null;
+    }
 
     return {
       terminal: selectedTerminal,

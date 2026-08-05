@@ -9,8 +9,10 @@ import {
 } from "@/components/ui/select";
 
 import { FC, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Loader2Icon, AlertCircleIcon } from "lucide-react";
 import { apis } from "@/apis";
+import { I18NNAMESPACE } from "@/lib/constants";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Device } from "@/types/device";
 
@@ -29,6 +31,7 @@ export const TerminalSelect: FC<TerminalSelectProps> = ({
   onDeviceSelected,
   disabled,
 }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
   const {
     data: config,
     isLoading: isConfigLoading,
@@ -81,30 +84,30 @@ export const TerminalSelect: FC<TerminalSelectProps> = ({
       disabled={disabled || isDeviceLoading}
     >
       <SelectTrigger className="w-full h-10 min-h-10 px-3 py-2">
-        <SelectValue placeholder="Select the POS Terminal" />
+        <SelectValue placeholder={t("select_pos_terminal")} />
       </SelectTrigger>
       <SelectContent>
         {isConfigOrTerminalsLoading ? (
           <div className="flex items-center justify-center gap-2 py-2 px-2">
             <Loader2Icon
               role="status"
-              aria-label="Loading terminals"
+              aria-label={t("loading_terminals")}
               className="size-4 animate-spin"
             />
-            <p className="text-sm text-gray-600">Loading terminals...</p>
+            <p className="text-sm text-gray-600">{t("loading_terminals")}</p>
           </div>
         ) : configOrTerminalsError ? (
           <div className="flex items-center gap-2 py-2 px-2 text-sm text-red-600">
             <AlertCircleIcon className="size-4 flex-shrink-0" />
-            <p>Failed to load terminals</p>
+            <p>{t("failed_to_load_terminals")}</p>
           </div>
         ) : terminals.length === 0 ? (
           <div className="py-2 px-2 text-sm text-gray-500 text-center">
-            No POS terminals configured
+            {t("no_pos_terminals_configured")}
           </div>
         ) : (
           <SelectGroup>
-            <SelectLabel>Available Terminals</SelectLabel>
+            <SelectLabel>{t("available_terminals")}</SelectLabel>
             {terminals.map((terminal) => (
               <SelectItem key={terminal.id} value={terminal.id}>
                 <div className="flex flex-col">
