@@ -13,12 +13,8 @@ import {
   StatusBadgeColor,
 } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import {
-  PaymentReconciliation,
-  PaymentReconciliationOutcome,
-} from "@/types/payment_reconciliation";
+import { PaymentReconciliationOutcome } from "@/types/payment_reconciliation";
 import { formatCurrency, toast } from "@/lib/utils";
-import dayjs from "@/lib/dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apis } from "@/apis";
 import { Loader2Icon, RefreshCwIcon, XIcon } from "lucide-react";

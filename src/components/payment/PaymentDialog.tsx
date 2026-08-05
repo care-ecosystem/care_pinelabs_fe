@@ -44,7 +44,7 @@ import { UseFormReturn } from "react-hook-form";
 import { apis } from "@/apis";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 import { usePaymentReconciliationStatus } from "@/hooks/usePaymentReconciliationStatus";
-import { getPaymentMethodLabel } from "@/lib/paymentMethods";
+import { getPaymentMethodLabelKey } from "@/lib/paymentMethods";
 import { MetaTable } from "@/components/transactions/MetaTable";
 
 export type PaymentDialogProps = {
@@ -153,11 +153,11 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         if (pr.authorization !== undefined) {
           form?.setValue("authorization", pr.authorization ?? "");
         }
-        toast.success("Payment completed successfully");
+        toast.success(t("toast_payment_completed_successfully"));
       } else if (pr.outcome === PaymentReconciliationOutcome.error) {
-        toast.error("Payment failed on the terminal");
+        toast.error(t("toast_payment_failed_on_terminal"));
       } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
-        toast.warning("Payment partially completed on the terminal");
+        toast.warning(t("toast_payment_partially_completed"));
       }
       if (invoice?.id) {
         queryClient.invalidateQueries({
@@ -168,15 +168,13 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [form, invoice?.id, queryClient],
+    [form, invoice?.id, queryClient, t],
   );
 
   const handleTimeout = useCallback(() => {
     setPollingTimedOut(true);
-    toast.warning(
-      "Transaction timed out. Please verify the status on the terminal.",
-    );
-  }, []);
+    toast.warning(t("toast_transaction_timed_out"));
+  }, [t]);
 
   const { pr: polledPr, isPolling } = usePaymentReconciliationStatus(prId, {
     enabled: !!prId && !settledPr,
@@ -211,26 +209,26 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         (values.target_invoice as string | undefined) ?? invoice?.id ?? null;
 
       if (!selectedTerminal) {
-        toast.error("Please select a terminal");
+        toast.error(t("error_please_select_terminal"));
         return null;
       }
       if (!account) {
-        toast.error("Account is required to record a payment");
+        toast.error(t("error_account_required"));
         return null;
       }
       if (!paymentMethod) {
-        toast.error("Payment method is required");
+        toast.error(t("error_payment_method_required"));
         return null;
       }
 
       const tendered = parseFloat(tenderedAmount);
       const returned = parseFloat(returnedAmount);
       if (!(tendered > 0)) {
-        toast.error("Tendered amount must be greater than zero");
+        toast.error(t("error_tendered_amount_must_be_positive"));
         return null;
       }
       if (returned >= tendered) {
-        toast.error("Returned amount must be less than tendered amount");
+        toast.error(t("error_returned_amount_must_be_less"));
         return null;
       }
 
@@ -247,7 +245,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         issuer_type:
           (values.issuer_type as PaymentReconciliationIssuerType) ??
           PaymentReconciliationIssuerType.patient,
-        method: paymentMethod as PaymentReconciliationPaymentMethod,
+        method: paymentMethod,
         tendered_amount: tenderedAmount,
         returned_amount: returnedAmount,
         is_credit_note: Boolean(values.is_credit_note ?? false),
@@ -264,6 +262,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       returnedAmount,
       selectedTerminal,
       tenderedAmount,
+      t,
     ]);
 
   const uploadTransactionMutation = useMutation({
@@ -272,11 +271,11 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       setPrId(data.id);
       setSettledPr(null);
       setPollingTimedOut(false);
-      toast.success("Collect the payment on the POS terminal");
+      toast.success(t("toast_collect_payment_on_terminal"));
     },
     onError: (error: unknown) => {
       toast.error(
-        getPinelabsErrorMessage(error, "Failed to initiate the transaction"),
+        getPinelabsErrorMessage(error, t("error_failed_to_initiate_transaction")),
       );
     },
   });
@@ -284,13 +283,13 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const cancelTransactionMutation = useMutation({
     mutationFn: apis.gateway.cancel_transaction,
     onSuccess: () => {
-      toast.success("Transaction cancelled");
+      toast.success(t("toast_transaction_cancelled"));
       setIsOpen(false);
       resetDialogState();
     },
     onError: (error: unknown) => {
       toast.error(
-        getPinelabsErrorMessage(error, "Failed to cancel the transaction"),
+        getPinelabsErrorMessage(error, t("error_failed_to_cancel_transaction")),
       );
     },
   });
@@ -412,22 +411,22 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
         {showSuccess && livePr ? (
           <SuccessView
             pr={livePr}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
           />
         ) : showFailure && livePr ? (
           <FailureView
             pr={livePr}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         ) : pollingTimedOut ? (
           <TimedOutView
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         ) : isTransactionInProgress ? (
           <InProgressView
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
             isPolling={isPolling}
             transactionNumber={transactionNumber}
@@ -438,7 +437,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
             facilityId={facilityId}
             selectedTerminal={selectedTerminal}
             onTerminalChange={setSelectedTerminal}
-            paymentMethodLabel={t(getPaymentMethodLabel(paymentMethod))}
+            paymentMethodLabel={t(getPaymentMethodLabelKey(paymentMethod))}
             amount={displayAmount}
           />
         )}
