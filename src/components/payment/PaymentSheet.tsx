@@ -130,6 +130,20 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     }
   }, [isOpen, allowPartialPayment, amount]);
 
+  useEffect(() => {
+    if (
+      isOpen &&
+      !configLoading &&
+      !configError &&
+      pinelabsConfig &&
+      pinelabsConfig.payment_method_mappings.length === 0
+    ) {
+      toast.error(t("no_payment_methods_configured"), {
+        id: "pinelabs-no-payment-methods",
+      });
+    }
+  }, [isOpen, configLoading, configError, pinelabsConfig, t]);
+
   const handleTenderedAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     const regex = /^\d*\.?\d{0,2}$/;

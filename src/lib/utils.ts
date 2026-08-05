@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
 
 // TODO: Share sonner toast package with core.
 const defaultToastOptions = {
-  position: "top-right" as ToasterProps["position"],
+  position: "top-center" as ToasterProps["position"],
   richColors: true,
 };
 
