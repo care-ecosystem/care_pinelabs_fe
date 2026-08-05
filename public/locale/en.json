@@ -5,6 +5,7 @@
   "recording_payment_for_account": "Recording payment for account",
   "switch_to_manual_entry": "Switch to manual entry",
   "manual_entry_hint": "This exits the Pinelabs flow and lets you record the payment yourself (cash, cheque, bank transfer) without the POS terminal.",
+  "switch_to_pinelabs_terminal": "Switch to Pinelabs terminal",
   "payment_warning_message": "{{amount}} will be collected via the Pinelabs POS terminal using {{paymentMethod}}. Confirm the terminal and location before sending the request.",
 
   "payment_method": "Payment Method",

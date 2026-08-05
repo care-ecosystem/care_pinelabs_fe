@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
+import { SwitchToPinelabsButton } from "@/components/overrides/SwitchToPinelabsButton";
 import { Invoice } from "@/types/invoice";
 import { Account } from "@/types/account";
 import { useQuery } from "@tanstack/react-query";
@@ -93,21 +94,37 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       setUrlMode(null);
     };
 
+    const canSwitchToPinelabs = props.isCreditNote
+      ? false
+      : props.invoice
+        ? !!pinelabsConfig
+        : !!(props.account || props.accountId) &&
+          !!pinelabsConfig &&
+          allowAdvancePayment;
+
     if (urlMode === "manual" && props.__base) {
       const NativeComponent = props.__base;
 
       return (
-        <NativeComponent
-          {...props}
-          onOpenChange={(open: boolean) => {
-            if (!open) {
-              removeUrlParam();
-              props.onOpenChange(false);
-            } else {
-              props.onOpenChange(open);
-            }
-          }}
-        />
+        <>
+          <NativeComponent
+            {...props}
+            onOpenChange={(open: boolean) => {
+              if (!open) {
+                removeUrlParam();
+                props.onOpenChange(false);
+              } else {
+                props.onOpenChange(open);
+              }
+            }}
+          />
+          {canSwitchToPinelabs && (
+            <SwitchToPinelabsButton
+              matchText={props.invoice?.number}
+              onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
+            />
+          )}
+        </>
       );
     }
 
@@ -130,30 +147,61 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
     }
 
     if (props.invoice) {
-      if (!urlMode && isInitialized) {
-        setUrlParam("mode", "pinelabs");
+      if (isPinelabsFlow || urlMode === "pinelabs") {
+        if (!urlMode && isInitialized) {
+          setUrlParam("mode", "pinelabs");
+        }
+
+        return (
+          <PaymentSheet
+            facilityId={props.facilityId}
+            invoice={props.invoice}
+            account={undefined}
+            autoOpen={true}
+            isCreditNote={props.isCreditNote}
+            onSwitchToManual={() => {
+              setUrlParam("mode", "manual");
+            }}
+            onClose={() => {
+              props.onOpenChange(false);
+              removeUrlParam();
+            }}
+          />
+        );
       }
 
-      return (
-        <PaymentSheet
-          facilityId={props.facilityId}
-          invoice={props.invoice}
-          account={undefined}
-          autoOpen={true}
-          isCreditNote={props.isCreditNote}
-          onSwitchToManual={() => {
-            setUrlParam("mode", "manual");
-          }}
-          onClose={() => {
-            props.onOpenChange(false);
-            removeUrlParam();
-          }}
-        />
-      );
+      if (props.__base) {
+        if (!urlMode && isInitialized) {
+          setUrlParam("mode", "manual");
+        }
+
+        const NativeComponent = props.__base;
+        return (
+          <>
+            <NativeComponent
+              {...props}
+              onOpenChange={(open: boolean) => {
+                if (!open) {
+                  removeUrlParam();
+                  props.onOpenChange(false);
+                } else {
+                  props.onOpenChange(open);
+                }
+              }}
+            />
+            {canSwitchToPinelabs && (
+              <SwitchToPinelabsButton
+                matchText={props.invoice.number}
+                onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
+              />
+            )}
+          </>
+        );
+      }
     }
 
     if (props.account || props.accountId) {
-      if (isPinelabsFlow && allowAdvancePayment) {
+      if ((isPinelabsFlow || urlMode === "pinelabs") && allowAdvancePayment) {
         if (!urlMode && isInitialized) {
           setUrlParam("mode", "pinelabs");
         }
@@ -175,19 +223,30 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       }
 
       if (props.__base) {
+        if (!urlMode && isInitialized) {
+          setUrlParam("mode", "manual");
+        }
+
         const NativeComponent = props.__base;
         return (
-          <NativeComponent
-            {...props}
-            onOpenChange={(open: boolean) => {
-              if (!open) {
-                removeUrlParam();
-                props.onOpenChange(false);
-              } else {
-                props.onOpenChange(open);
-              }
-            }}
-          />
+          <>
+            <NativeComponent
+              {...props}
+              onOpenChange={(open: boolean) => {
+                if (!open) {
+                  removeUrlParam();
+                  props.onOpenChange(false);
+                } else {
+                  props.onOpenChange(open);
+                }
+              }}
+            />
+            {canSwitchToPinelabs && (
+              <SwitchToPinelabsButton
+                onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
+              />
+            )}
+          </>
         );
       }
     }
