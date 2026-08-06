@@ -157,9 +157,8 @@ export const apis = {
     },
 
     getTerminals: async (configId: string, mine: boolean = false) => {
-      const queryParams = mine ? "?mine=true" : "";
       return await request<PosTerminal[]>(
-        `/api/care_pinelabs/pinelabs_config/${configId}/pos-terminals/${queryParams}`,
+        `/api/care_pinelabs/pinelabs_config/${configId}/pos-terminals/?mine=${mine}`,
       );
     },
     linkTerminals: async (configId: string, terminalDeviceIds: string[]) => {

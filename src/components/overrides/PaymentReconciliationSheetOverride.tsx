@@ -33,11 +33,12 @@ const cleanupUrlParams = () => {
 };
 
 const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOverrideProps) => {
-  const { data: pinelabsConfig } = useQuery({
-    queryKey: ["pinelabs_config", props.facilityId],
-    queryFn: () => apis.pinelabs_config.get(props.facilityId),
-    enabled: !!props.facilityId && props.open,
-  });
+  const { data: pinelabsConfig, isLoading: isPinelabsConfigLoading } =
+    useQuery({
+      queryKey: ["pinelabs_config", props.facilityId],
+      queryFn: () => apis.pinelabs_config.get(props.facilityId),
+      enabled: !!props.facilityId && props.open,
+    });
 
   const allowAdvancePayment = pinelabsConfig?.allow_advance_payment ?? false;
   const isPinelabsFlow = pinelabsConfig?.default_payment_flow === "pinelabs";
@@ -79,6 +80,9 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
 
   try {
     if (!props.open) {
+      return null;
+    }
+    if (isPinelabsConfigLoading && !!props.facilityId) {
       return null;
     }
 

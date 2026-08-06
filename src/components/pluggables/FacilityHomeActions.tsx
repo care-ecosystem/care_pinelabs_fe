@@ -7,7 +7,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { FC, useEffect, useState } from "react";
+import { FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import {
@@ -37,7 +37,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useFieldArray, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -90,6 +95,7 @@ const PAYMENT_FLOW_OPTIONS = [
 ];
 
 const SEARCH_DEBOUNCE_INTERVAL = 500;
+const DEVICE_SEARCH_PAGE_SIZE = 10;
 
 // This plugin's `font-mono` utility only applies inside a `.care-pinelabs-container`
 // ancestor, which this component isn't wrapped in, so it silently has no effect here.
@@ -236,21 +242,35 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   const {
     data: deviceSearchData,
     isFetching: isSearchingDevices,
+    fetchNextPage: fetchNextDevicePage,
+    hasNextPage: hasMoreDevices,
+    isFetchingNextPage: isFetchingMoreDevices,
     error: deviceSearchError,
-  } = useQuery({
+  } = useInfiniteQuery({
     queryKey: ["facilities", facility?.id, "devices-for-config", terminalDeviceSearch],
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ pageParam, signal }) => {
       if (!facility?.id) throw new Error("Facility ID is required");
-      await sleep(SEARCH_DEBOUNCE_INTERVAL);
+      if (pageParam === 0) {
+        await sleep(SEARCH_DEBOUNCE_INTERVAL);
+      }
       return apis.devices.list(
         facility.id,
         {
           care_type: "pos-terminal",
-          limit: 20,
+          limit: DEVICE_SEARCH_PAGE_SIZE,
+          offset: pageParam,
           search_text: terminalDeviceSearch || undefined,
         },
         signal,
       );
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const fetchedCount = allPages.reduce(
+        (sum, page) => sum + page.results.length,
+        0,
+      );
+      return fetchedCount < lastPage.count ? fetchedCount : undefined;
     },
     enabled: !!facility?.id && open && sheetView === "terminals" && terminalPickerOpen,
     retry: false,
@@ -258,7 +278,10 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     // the cached page instead of hitting the API again.
   });
 
-  const deviceSearchResults = deviceSearchData?.results ?? [];
+  const deviceSearchResults = useMemo(
+    () => deviceSearchData?.pages.flatMap((page) => page.results) ?? [],
+    [deviceSearchData],
+  );
 
   // Create config mutation
   const createConfigMutation = useMutation({
@@ -280,16 +303,15 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
           },
           {
             onSuccess: () => {
-              setSheetView("main");
-              setEditingConfig(false);
               createConfigForm.reset();
+              closeSheet();
             },
           },
         );
       } else {
         refetchConfig();
-        setSheetView("main");
         createConfigForm.reset();
+        closeSheet();
       }
     },
     onError: (error: any) => {
@@ -458,6 +480,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   };
 
   const availableDeviceResults = deviceSearchResults.filter((device) => {
+    if (device.status !== "active") return false;
     const isAlreadyAdded = terminals?.some(
       (t) => t.device_id === device.id
     );
@@ -994,6 +1017,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                 <PopoverContent
                   className="w-(--radix-popover-trigger-width) p-0"
                   align="start"
+                  onWheel={(e) => e.stopPropagation()}
                 >
                   <Command shouldFilter={false}>
                     <CommandInput
@@ -1002,7 +1026,22 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                       onValueChange={setTerminalDeviceSearch}
                       className="outline-hidden border-none ring-0 shadow-none text-base sm:text-sm"
                     />
-                    <CommandList>
+                    <CommandList
+                      onScroll={(e) => {
+                        const target = e.currentTarget;
+                        const nearBottom =
+                          target.scrollTop + target.clientHeight >=
+                          target.scrollHeight - 32;
+                        if (
+                          nearBottom &&
+                          hasMoreDevices &&
+                          !isFetchingMoreDevices &&
+                          !isSearchingDevices
+                        ) {
+                          fetchNextDevicePage();
+                        }
+                      }}
+                    >
                       <CommandEmpty>
                         {isSearchingDevices
                           ? t("searching")
@@ -1030,6 +1069,14 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                             {device.registered_name}
                           </CommandItem>
                         ))}
+                        {isFetchingMoreDevices && (
+                          <div className="flex items-center justify-center gap-2 py-2">
+                            <Loader2Icon className="size-4 animate-spin text-gray-500" />
+                            <span className="text-sm text-gray-500">
+                              {t("loading")}
+                            </span>
+                          </div>
+                        )}
                       </CommandGroup>
                     </CommandList>
                   </Command>

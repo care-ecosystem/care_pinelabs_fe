@@ -131,6 +131,20 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     }
   }, [pinelabsConfig?.payment_method_mappings]);
 
+  useEffect(() => {
+    if (
+      isOpen &&
+      !configLoading &&
+      !configError &&
+      pinelabsConfig &&
+      pinelabsConfig.payment_method_mappings.length === 0
+    ) {
+      toast.error(t("no_payment_methods_configured"), {
+        id: "pinelabs-no-payment-methods",
+      });
+    }
+  }, [isOpen, configLoading, configError, pinelabsConfig, t]);
+
   const amountDue = account ? parseFloat(account.total_balance || "0") : 0;
   const displayAmount = parseFloat(tenderedAmount) || 0;
 
