@@ -26,7 +26,7 @@ export enum PaymentReconciliationIssuerType {
   insurance = "insurance",
 }
 
-export enum PaymentReconciliationOutcome {
+export enum PaymentReconciliationStatus {
   queued = "queued",
   complete = "complete",
   error = "error",
@@ -49,12 +49,14 @@ export type PaymentReconciliation = {
   status: PaymentReconciliationStatus;
   kind: PaymentReconciliationKind;
   issuer_type: PaymentReconciliationIssuerType;
-  outcome: PaymentReconciliationOutcome;
+  outcome: PaymentReconciliationStatus;
+  
   disposition?: string;
   created_date?: string;
   modified_date?: string;
   method: PaymentReconciliationPaymentMethod;
-  reference_number?: string;
+  transaction_id?: string;
+  transaction_number?: string;
   authorization?: string;
   tendered_amount?: string;
   returned_amount?: string;
@@ -65,5 +67,6 @@ export type PaymentReconciliation = {
   is_credit_note: boolean;
   meta?: {
     pinelabs?: Record<string, unknown>;
+    terminal_id?: string
   };
 };
