@@ -41,12 +41,16 @@ import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 import { Account } from "@/types/account";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  getStoredTerminalSelection,
+  setStoredTerminalSelection,
+} from "@/lib/terminalSession";
 
 
 export type PineLabsAccountPaymentProps = {
@@ -130,6 +134,14 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       }
     }
   }, [pinelabsConfig?.payment_method_mappings]);
+  useEffect(() => {
+    if (!isOpen || !facilityId || selectedTerminal) return;
+    const stored = getStoredTerminalSelection(facilityId);
+    if (stored) {
+      setSelectedTerminal(stored.terminalId);
+      setSelectedLocation(stored.location);
+    }
+  }, [isOpen, facilityId, selectedTerminal]);
 
   useEffect(() => {
     if (
@@ -170,11 +182,11 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     (pr: PaymentReconciliation) => {
       if (!account) return;
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationOutcome.complete) {
+      if (pr.outcome === PaymentReconciliationStatus.complete) {
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.error) {
+      } else if (pr.outcome === PaymentReconciliationStatus.error) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
+      } else if (pr.outcome === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
 
@@ -207,10 +219,10 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
+  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.complete;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationOutcome.error ||
-    livePr?.outcome === PaymentReconciliationOutcome.partial;
+    livePr?.outcome === PaymentReconciliationStatus.error ||
+    livePr?.outcome === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -288,6 +300,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       setSettledPr(null);
       setPollingTimedOut(false);
       toast.success(t("toast_collect_payment_on_terminal"));
+      if (selectedTerminal) {
+        setStoredTerminalSelection(facilityId, {
+          terminalId: selectedTerminal,
+          location: selectedLocation,
+        });
+      }
     },
     onError: (error: unknown) => {
       toast.error(

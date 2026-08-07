@@ -8,7 +8,7 @@
   "switch_to_pinelabs_terminal": "Switch to Pinelabs terminal",
   "payment_warning_message": "{{amount}} will be collected via the Pinelabs POS terminal using {{paymentMethod}}. Confirm the terminal and location before sending the request.",
 
-  "payment_method": "Payment Method",
+  "payment_method": "Method",
   "amount": "Amount",
   "amount_due": "Amount Due",
   "invoice_total": "Invoice total:",
