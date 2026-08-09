@@ -167,6 +167,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
       </div>
 
       <TransactionDetailsSheet
+        facilityId={facilityId}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
         transactionId={selectedTransactionId}

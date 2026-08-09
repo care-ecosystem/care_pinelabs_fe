@@ -118,11 +118,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   const [terminalDeviceSearch, setTerminalDeviceSearch] = useState("");
   const [terminalPickerOpen, setTerminalPickerOpen] = useState(false);
   const [showSecurityToken, setShowSecurityToken] = useState(false);
-  // Snapshot of linked device ids as last persisted, so we can tell whether
-  // the user actually changed the POS terminal list before saving/toasting.
   const [terminalsBaseline, setTerminalsBaseline] = useState<string[]>([]);
-  // Caches device info (id -> registered_name) so already-linked terminals
-  // can show a human-readable name without keeping a full device list around.
   const [deviceInfoCache, setDeviceInfoCache] = useState<
     Record<string, Pick<Device, "id" | "registered_name">>
   >({});
@@ -177,17 +173,10 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     name: "pos_terminals",
   });
 
-  // Whether the linked terminals differ from what's currently persisted -
-  // drives the terminals screen's Save button and whether a device-linking
-  // toast/API call is warranted on config save.
   const hasTerminalChanges =
     JSON.stringify([...(terminals ?? []).map((t) => t.device_id)].sort()) !==
     JSON.stringify([...terminalsBaseline].sort());
 
-  // Fetch config for this facility. `staleTime: Infinity` keeps this cached
-  // across opens/closes/refocuses - we only ever refresh it explicitly
-  // (refetchConfig()/invalidateQueries) right after a mutation that actually
-  // changes it, instead of silently refetching on every mount.
   const {
     data: config,
     isLoading: isConfigLoading,
@@ -200,18 +189,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     retry: false,
   });
 
-  // Fetch linked POS terminals for the config - same caching rationale as
-  // the config query above; only refetchTerminals() after a linking change
-  // should hit the network again.
   const {
     data: posTerminals,
     isError: isTerminalsError,
     refetch: refetchTerminals,
   } = useQuery({
     queryKey: ["pinelabs_config", config?.id, "pos-terminals"],
-    // `refetch()` bypasses `enabled`, so guard here too - otherwise a
-    // refetch triggered while `config` is momentarily unset hits
-    // `/pinelabs_config//pos-terminals/` (empty id) and fails.
     queryFn: () =>
       config?.id
         ? apis.pinelabs_config.getTerminals(config.id)
@@ -220,8 +203,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     retry: 1,
   });
 
-  // Seed the device-info cache from already-linked terminals so their names
-  // can be shown without keeping a full device list around.
   useEffect(() => {
     if (!posTerminals?.length) return;
     setDeviceInfoCache((prev) => {
@@ -236,9 +217,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     });
   }, [posTerminals]);
 
-  // Search devices for terminal selection in create-config form - hits the
-  // API on every (debounced) keystroke rather than filtering a locally
-  // cached page of devices.
   const {
     data: deviceSearchData,
     isFetching: isSearchingDevices,
@@ -274,8 +252,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     },
     enabled: !!facility?.id && open && sheetView === "terminals" && terminalPickerOpen,
     retry: false,
-    // Re-typing/reopening with the same search term within this window reuses
-    // the cached page instead of hitting the API again.
   });
 
   const deviceSearchResults = useMemo(
@@ -336,6 +312,9 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       setTimeout(() => {
         refetchConfig();
         refetchTerminals();
+        queryClient.invalidateQueries({
+          queryKey: ["pinelabs_config", variables.configId, "pos-terminals"],
+        });
       }, 500);
     },
     onError: (error: any) => {
@@ -351,7 +330,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   const updateConfigMutation = useMutation({
     mutationFn: (data: UpdatePinelabsConfigBody) => {
       if (!config) throw new Error("Config not found");
-      // ✅ pos_terminals are synced separately via the pos-terminals endpoint
       const { pos_terminals, ...configData } = data;
       return apis.pinelabs_config.update(config.id, configData);
     },
@@ -920,7 +898,7 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                         if (!nextCareMethod) return;
                         append({
                           care_method: nextCareMethod.value,
-                          pinelabs_method: PinelabsPaymentModeEnum.CASH,
+                          pinelabs_method: PinelabsPaymentModeEnum.UPI_BHARAT_QR,
                           is_default: false,
                         });
                       }}

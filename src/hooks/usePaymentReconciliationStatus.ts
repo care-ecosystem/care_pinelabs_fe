@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { apis } from "@/apis";
 import {
@@ -18,14 +19,16 @@ export type UsePaymentReconciliationStatusOptions = {
   onTimeout?: () => void;
 };
 
-const TERMINAL_OUTCOMES = new Set<PaymentReconciliationStatus>([
+const TERMINAL_STATUSES = new Set<PaymentReconciliationStatus>([
   PaymentReconciliationStatus.completed,
+  PaymentReconciliationStatus.cancelled,
   PaymentReconciliationStatus.failed,
   PaymentReconciliationStatus.partial,
+  PaymentReconciliationStatus.timeout,
 ]);
 
-const isTerminalOutcome = (outcome?: PaymentReconciliationStatus): boolean =>
-  outcome !== undefined && TERMINAL_OUTCOMES.has(outcome);
+const isTerminalStatus = (status?: PaymentReconciliationStatus): boolean =>
+  status !== undefined && TERMINAL_STATUSES.has(status);
 
 export function usePaymentReconciliationStatus(
   paymentReconciliationId: string | null | undefined,
@@ -40,6 +43,8 @@ export function usePaymentReconciliationStatus(
     onSettled,
     onTimeout,
   } = options;
+
+  const queryClient = useQueryClient();
 
   const [pr, setPr] = useState<PaymentReconciliation | null>(null);
   const [error, setError] = useState<unknown | null>(null);
@@ -56,6 +61,7 @@ export function usePaymentReconciliationStatus(
 
   const cancelledRef = useRef(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStatusRef = useRef<PaymentReconciliationStatus | undefined>(undefined);
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
@@ -76,6 +82,7 @@ export function usePaymentReconciliationStatus(
     }
 
     cancelledRef.current = false;
+    lastStatusRef.current = undefined;
     const startedAt = Date.now();
     setIsPolling(true);
     setError(null);
@@ -93,7 +100,14 @@ export function usePaymentReconciliationStatus(
 
         setPr(data);
 
-        if (isTerminalOutcome(data.outcome)) {
+        if (data.status !== lastStatusRef.current) {
+          lastStatusRef.current = data.status;
+          queryClient.invalidateQueries({
+            queryKey: ["payment_reconciliations"],
+          });
+        }
+
+        if (isTerminalStatus(data.status)) {
           setIsPolling(false);
           onSettledRef.current?.(data);
           return;
@@ -136,7 +150,7 @@ export function usePaymentReconciliationStatus(
     maxWaitMs,
   ]);
 
-  const isTerminal = isTerminalOutcome(pr?.outcome);
+  const isTerminal = isTerminalStatus(pr?.status);
 
   return {
     pr,

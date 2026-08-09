@@ -13,12 +13,12 @@ export enum PaymentReconciliationStatus {
   draft = "draft",
   entered_in_error = "entered_in_error",
 }
-export enum PaymentReconciliationOutcome {
-  active = "active",
-  cancelled = "cancelled",
-  draft = "draft",
-  entered_in_error = "entered_in_error",
-}
+// export enum PaymentReconciliationOutcome {
+//   active = "active",
+//   cancelled = "cancelled",
+//   draft = "draft",
+//   entered_in_error = "entered_in_error",
+// }
 
 export enum PaymentReconciliationKind {
   deposit = "deposit",

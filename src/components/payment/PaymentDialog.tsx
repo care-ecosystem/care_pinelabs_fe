@@ -57,7 +57,7 @@ export type PaymentDialogProps = {
 const SUPPORTED_METHODS = new Set([
   PaymentReconciliationPaymentMethod.debc,
   PaymentReconciliationPaymentMethod.ccca,
-  PaymentReconciliationPaymentMethod.cash,
+  // PaymentReconciliationPaymentMethod.cash,
 ]);
 
 const CARD_METHODS = new Set([
@@ -82,11 +82,14 @@ const derivePaymentMode = (method: string): PaymentMode =>
 
 const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
   switch (status) {
-    case PaymentReconciliationStatus.active:
+    case PaymentReconciliationStatus.completed:
       return "default";
-    case PaymentReconciliationStatus.draft:
+    case PaymentReconciliationStatus.in_progress:
+    case PaymentReconciliationStatus.started:
       return "secondary";
     case PaymentReconciliationStatus.cancelled:
+    case PaymentReconciliationStatus.failed:
+    case PaymentReconciliationStatus.timeout:
       return "destructive";
     default:
       return "outline";
@@ -95,12 +98,20 @@ const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
 
 const getStatusLabel = (status: PaymentReconciliationStatus) => {
   switch (status) {
-    case PaymentReconciliationStatus.active:
+    case PaymentReconciliationStatus.completed:
       return "status_completed";
-    case PaymentReconciliationStatus.draft:
-      return "status_pending";
+    case PaymentReconciliationStatus.in_progress:
+      return "status_in_progress";
+    case PaymentReconciliationStatus.started:
+      return "status_started";
     case PaymentReconciliationStatus.cancelled:
       return "status_cancelled";
+    case PaymentReconciliationStatus.failed:
+      return "status_failed";
+    case PaymentReconciliationStatus.timeout:
+      return "status_timeout";
+    case PaymentReconciliationStatus.partial:
+      return "status_partial";
     default:
       return "status";
   }
@@ -145,7 +156,7 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationStatus.completed) {
+      if (pr.status === PaymentReconciliationStatus.completed) {
         if (pr.transaction_id !== undefined) {
           form?.setValue("reference_number", pr.transaction_id ?? "");
         }
@@ -153,9 +164,13 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
           form?.setValue("authorization", pr.authorization ?? "");
         }
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationStatus.failed) {
+      } else if (
+        pr.status === PaymentReconciliationStatus.failed ||
+        pr.status === PaymentReconciliationStatus.cancelled ||
+        pr.status === PaymentReconciliationStatus.timeout
+      ) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationStatus.partial) {
+      } else if (pr.status === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
       if (invoice?.id) {
@@ -184,10 +199,12 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.completed;
+  const showSuccess = livePr?.status === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationStatus.failed ||
-    livePr?.outcome === PaymentReconciliationStatus.partial;
+    livePr?.status === PaymentReconciliationStatus.failed ||
+    livePr?.status === PaymentReconciliationStatus.cancelled ||
+    livePr?.status === PaymentReconciliationStatus.timeout ||
+    livePr?.status === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -271,6 +288,9 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       setSettledPr(null);
       setPollingTimedOut(false);
       toast.success(t("toast_collect_payment_on_terminal"));
+      queryClient.invalidateQueries({
+        queryKey: ["payment_reconciliations"],
+      });
     },
     onError: (error: unknown) => {
       toast.error(
@@ -634,7 +654,7 @@ type FailureViewProps = {
 
 export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amount }) => {
   const { t } = useTranslation(I18NNAMESPACE);
-  const isPartial = pr.outcome === PaymentReconciliationStatus.partial;
+  const isPartial = pr.status === PaymentReconciliationStatus.partial;
   return (
     <div className="space-y-4">
       <div

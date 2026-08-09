@@ -182,11 +182,15 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     (pr: PaymentReconciliation) => {
       if (!account) return;
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationStatus.completed) {
+      if (pr.status === PaymentReconciliationStatus.completed) {
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationStatus.failed) {
+      } else if (
+        pr.status === PaymentReconciliationStatus.failed ||
+        pr.status === PaymentReconciliationStatus.cancelled ||
+        pr.status === PaymentReconciliationStatus.timeout
+      ) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationStatus.partial) {
+      } else if (pr.status === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
 
@@ -219,10 +223,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.completed;
+  const showSuccess = livePr?.status === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationStatus.failed ||
-    livePr?.outcome === PaymentReconciliationStatus.partial;
+    livePr?.status === PaymentReconciliationStatus.failed ||
+    livePr?.status === PaymentReconciliationStatus.cancelled ||
+    livePr?.status === PaymentReconciliationStatus.timeout ||
+    livePr?.status === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -306,6 +312,9 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
           location: selectedLocation,
         });
       }
+      queryClient.invalidateQueries({
+        queryKey: ["payment_reconciliations"],
+      });
     },
     onError: (error: unknown) => {
       toast.error(
