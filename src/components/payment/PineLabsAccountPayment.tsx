@@ -106,6 +106,12 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     enabled: !!facilityId,
     retry: 2,});
 
+  const { data: allPosTerminals } = useQuery({
+    queryKey: ["pinelabs_config", pinelabsConfig?.id, "pos-terminals", "all"],
+    queryFn: () => apis.pinelabs_config.getTerminals(pinelabsConfig!.id, false),
+    enabled: !!pinelabsConfig?.id,
+  });
+
   // State management
   const [isOpen, setIsOpen] = useState(autoOpen);
   const [tenderedAmount, setTenderedAmount] = useState<string>("");
@@ -142,6 +148,18 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       setSelectedLocation(stored.location);
     }
   }, [isOpen, facilityId, selectedTerminal]);
+
+  useEffect(() => {
+    if (!selectedTerminal || !allPosTerminals) return;
+    const isStillEligible = allPosTerminals.some(
+      (terminal) => terminal.id === selectedTerminal
+    );
+    if (!isStillEligible) {
+      setSelectedTerminal(undefined);
+      setSelectedLocation(null);
+      toast.warning(t("error_terminal_no_longer_available"));
+    }
+  }, [selectedTerminal, allPosTerminals, t]);
 
   useEffect(() => {
     if (
@@ -182,6 +200,16 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
     (pr: PaymentReconciliation) => {
       if (!account) return;
       setSettledPr(pr);
+      const paidSuccessfully =
+        pr.status === PaymentReconciliationStatus.completed ||
+        pr.status === PaymentReconciliationStatus.partial;
+      if (paidSuccessfully && selectedTerminal) {
+        setStoredTerminalSelection(facilityId, {
+          terminalId: selectedTerminal,
+          location: selectedLocation,
+        });
+      }
+
       if (pr.status === PaymentReconciliationStatus.completed) {
         toast.success(t("toast_payment_completed_successfully"));
       } else if (
@@ -205,7 +233,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [account?.id, queryClient, t]
+    [account?.id, queryClient, t, selectedTerminal, selectedLocation, facilityId]
   );
 
   const handleTimeout = useCallback(() => {
@@ -254,6 +282,14 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       return null;
     }
 
+    if (
+      allPosTerminals &&
+      !allPosTerminals.some((terminal) => terminal.id === selectedTerminal)
+    ) {
+      toast.error(t("error_terminal_no_longer_available"));
+      return null;
+    }
+
     if (!selectedLocation) {
       toast.error(t("error_please_select_location"));
       return null;
@@ -296,7 +332,7 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       disposition: null,
       note: null,
     };
-  }, [tenderedAmount, account?.id, selectedLocation, selectedTerminal, paymentMethod, pinelabsConfig?.payment_method_mappings, isCreditNote, t]);
+  }, [tenderedAmount, account?.id, selectedLocation, selectedTerminal, allPosTerminals, paymentMethod, pinelabsConfig?.payment_method_mappings, isCreditNote, t]);
 
   // Upload transaction to Pine Labs
   const uploadTransactionMutation = useMutation({
@@ -306,12 +342,6 @@ export const PineLabsAccountPayment: FC<PineLabsAccountPaymentProps> = ({
       setSettledPr(null);
       setPollingTimedOut(false);
       toast.success(t("toast_collect_payment_on_terminal"));
-      if (selectedTerminal) {
-        setStoredTerminalSelection(facilityId, {
-          terminalId: selectedTerminal,
-          location: selectedLocation,
-        });
-      }
       queryClient.invalidateQueries({
         queryKey: ["payment_reconciliations"],
       });

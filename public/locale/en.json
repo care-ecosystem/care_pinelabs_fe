@@ -80,6 +80,7 @@
 
   "error_please_select_terminal": "Please select a terminal",
   "error_please_select_location": "Please select a location",
+  "error_terminal_no_longer_available": "The previously selected terminal is no longer available. Please select a terminal again.",
   "error_account_required": "Account is required to record a payment",
   "error_account_not_found": "Account not found",
   "error_payment_method_required": "Payment method is required",
