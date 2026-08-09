@@ -552,12 +552,12 @@ export const InProgressView: FC<InProgressViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center dark:border-blue-800 dark:bg-blue-950">
-        <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-blue-600 dark:text-blue-300" />
-        <p className="mt-3 text-sm font-medium text-blue-800 dark:text-blue-200">
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+        <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-gray-900 dark:text-gray-100" />
+        <p className="mt-3 text-sm font-medium text-gray-950 dark:text-gray-100">
           {t("transaction_in_progress")}
         </p>
-        <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
           {isPolling
             ? t("waiting_for_customer")
             : t("checking_status")}

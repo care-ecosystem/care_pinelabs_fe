@@ -25,6 +25,7 @@ import {
   UpdatePinelabsConfigBody,
 } from "@/types/pinelabs_config";
 import { Device, DeviceListParams } from "@/types/device";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 export const apis = {
   invoices: {
@@ -256,7 +257,7 @@ export const apis = {
     ) => {
       const cleanParams = Object.fromEntries(
         Object.entries({
-          limit: 20,
+          limit: DEFAULT_PAGE_SIZE,
           offset: 0,
           ordering: "-modified_date",
           ...params,
@@ -288,7 +289,7 @@ export const apis = {
     ) => {
       const cleanParams = Object.fromEntries(
         Object.entries({
-          limit: 20,
+          limit: DEFAULT_PAGE_SIZE,
           offset: 0,
           ordering: "-modified_date",
           ...params,

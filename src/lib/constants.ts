@@ -16,3 +16,5 @@ export const DEFAULT_PAYMENT_LINK_EXPIRY_MS = getNumberEnv(
   "VITE_DEFAULT_PAYMENT_LINK_EXPIRY_MS",
   60 * 60 * 1000
 ); // 1 hour
+
+export const DEFAULT_PAGE_SIZE = 20;

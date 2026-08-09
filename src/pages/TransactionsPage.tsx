@@ -3,19 +3,16 @@ import dayjs from "@/lib/dayjs";
 import { useTranslation } from "react-i18next";
 import { useQueryParams } from "raviger";
 import { useQuery } from "@tanstack/react-query";
-import { I18NNAMESPACE } from "@/lib/constants";
+import { I18NNAMESPACE, DEFAULT_PAGE_SIZE } from "@/lib/constants";
 import { apis } from "@/apis";
-import {
-  TransactionsTable,
-  ITEMS_PER_PAGE,
-} from "@/components/transactions/TransactionsTable";
+import { TransactionsTable } from "@/components/transactions/TransactionsTable";
 import { TransactionFilters } from "@/components/transactions/TransactionFilters";
 import { TransactionSort } from "@/components/transactions/TransactionSort";
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
 import { PINELABS_PAYMENT_MODES } from "@/lib/paymentMethods";
-import { Badge } from "@/components/ui/badge";
+// import { Badge } from "@/components/ui/badge";
 
 type TransactionsPageProps = {
   facilityId: string;
@@ -87,7 +84,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     );
     return {
       page: String(pageNum),
-      limit: String(ITEMS_PER_PAGE),
+      limit: String(DEFAULT_PAGE_SIZE),
       ordering: ord,
       ...filterEntries,
     };
@@ -158,6 +155,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
             facilityId={facilityId}
             filters={filters}
             page={page}
+            limit={DEFAULT_PAGE_SIZE}
             ordering={ordering}
             enabled={filtersReady}
             onPageChange={handlePageChange}

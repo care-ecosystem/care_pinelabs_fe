@@ -33,6 +33,7 @@ type TransactionsTableProps = {
   facilityId: string;
   filters: TransactionFilters;
   page: number;
+  limit: number;
   ordering: string;
   enabled?: boolean;
   onPageChange: (page: number) => void;
@@ -40,7 +41,6 @@ type TransactionsTableProps = {
   onCountChange?: (count: number) => void;
 };
 
-export const ITEMS_PER_PAGE = 20;
 const COLUMN_COUNT = 8;
 
 const TableSkeleton = () => (
@@ -72,6 +72,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   facilityId,
   filters,
   page,
+  limit,
   ordering,
   enabled = true,
   onPageChange,
@@ -83,7 +84,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   const { data, isLoading, error } = usePaymentReconciliations(
     facilityId,
     filters,
-    { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
+    { offset: page * limit, limit },
     ordering,
     enabled,
   );
@@ -122,8 +123,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   }
 
   const transactions = data?.results || [];
-  const hasNext = !!data?.next;
-  const hasPrevious = !!data?.previous;
+  const hasNext = (data?.count ?? 0) > (page + 1) * limit;
+  const hasPrevious = page > 0;
 
   return (
     <div>
@@ -226,8 +227,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-gray-700">
             {t("showing_results", {
-              from: page * ITEMS_PER_PAGE + 1,
-              to: Math.min((page + 1) * ITEMS_PER_PAGE, data?.count || 0),
+              from: page * limit + 1,
+              to: Math.min((page + 1) * limit, data?.count || 0),
               total: data?.count || 0,
             })}
           </div>
