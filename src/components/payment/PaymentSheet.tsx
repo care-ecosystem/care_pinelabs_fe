@@ -168,9 +168,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationStatus.complete) {
+      if (pr.outcome === PaymentReconciliationStatus.completed) {
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationStatus.error) {
+      } else if (pr.outcome === PaymentReconciliationStatus.failed) {
         toast.error(t("toast_payment_failed_on_terminal"));
       } else if (pr.outcome === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
@@ -200,9 +200,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.complete;
+  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationStatus.error ||
+    livePr?.outcome === PaymentReconciliationStatus.failed ||
     livePr?.outcome === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;

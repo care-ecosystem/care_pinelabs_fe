@@ -13,6 +13,12 @@ export enum PaymentReconciliationStatus {
   draft = "draft",
   entered_in_error = "entered_in_error",
 }
+export enum PaymentReconciliationOutcome {
+  active = "active",
+  cancelled = "cancelled",
+  draft = "draft",
+  entered_in_error = "entered_in_error",
+}
 
 export enum PaymentReconciliationKind {
   deposit = "deposit",
@@ -27,14 +33,16 @@ export enum PaymentReconciliationIssuerType {
 }
 
 export enum PaymentReconciliationStatus {
-  queued = "queued",
-  complete = "complete",
-  error = "error",
+  started = "started",
+  in_progress = "in_progress",
+  completed = "completed",
+  failed = "failed",
   partial = "partial",
+  timeout = "timeout",
 }
 
 export enum PaymentReconciliationPaymentMethod {
-  cash = "cash",
+  // cash = "cash",
   ccca = "ccca",
   cchk = "cchk",
   cdac = "cdac",
@@ -57,6 +65,7 @@ export type PaymentReconciliation = {
   method: PaymentReconciliationPaymentMethod;
   transaction_id?: string;
   transaction_number?: string;
+  payment_reconciliation?: string;
   authorization?: string;
   tendered_amount?: string;
   returned_amount?: string;

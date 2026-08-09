@@ -21,10 +21,9 @@ import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
-  PaymentReconciliationStatus,
 } from "@/types/payment_reconciliation";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
@@ -146,17 +145,17 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationOutcome.complete) {
-        if (pr.reference_number !== undefined) {
-          form?.setValue("reference_number", pr.reference_number ?? "");
+      if (pr.outcome === PaymentReconciliationStatus.completed) {
+        if (pr.transaction_id !== undefined) {
+          form?.setValue("reference_number", pr.transaction_id ?? "");
         }
         if (pr.authorization !== undefined) {
           form?.setValue("authorization", pr.authorization ?? "");
         }
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.error) {
+      } else if (pr.outcome === PaymentReconciliationStatus.failed) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
+      } else if (pr.outcome === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
       if (invoice?.id) {
@@ -185,10 +184,10 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
+  const showSuccess = livePr?.outcome === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationOutcome.error ||
-    livePr?.outcome === PaymentReconciliationOutcome.partial;
+    livePr?.outcome === PaymentReconciliationStatus.failed ||
+    livePr?.outcome === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -584,12 +583,12 @@ export const SuccessView: FC<SuccessViewProps> = ({
         <p className="mt-3 text-sm font-semibold text-green-800 dark:text-green-200">
           {t("payment_completed_successfully")}
         </p>
-        {pr.reference_number ? (
+        {pr.transaction_id ? (
           <div className="mt-3 space-y-1">
             <p className="text-xs uppercase tracking-wide text-green-600 dark:text-green-400">
               {t("rrn")}</p>
             <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {pr.reference_number}
+              {pr.transaction_id}
             </p>
           </div>
         ) : null}
@@ -635,7 +634,7 @@ type FailureViewProps = {
 
 export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amount }) => {
   const { t } = useTranslation(I18NNAMESPACE);
-  const isPartial = pr.outcome === PaymentReconciliationOutcome.partial;
+  const isPartial = pr.outcome === PaymentReconciliationStatus.partial;
   return (
     <div className="space-y-4">
       <div
@@ -684,8 +683,8 @@ export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amou
         </div>
         <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
         <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
-        {pr.reference_number ? (
-          <SummaryRow label={t("rrn")} value={pr.reference_number} mono />
+        {pr.transaction_id ? (
+          <SummaryRow label={t("rrn")} value={pr.transaction_id} mono />
         ) : null}
       </div>
 

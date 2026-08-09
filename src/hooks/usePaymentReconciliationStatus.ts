@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apis } from "@/apis";
 import {
   PaymentReconciliation,
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
 } from "@/types/payment_reconciliation";
 
 export type UsePaymentReconciliationStatusOptions = {
@@ -18,13 +18,13 @@ export type UsePaymentReconciliationStatusOptions = {
   onTimeout?: () => void;
 };
 
-const TERMINAL_OUTCOMES = new Set<PaymentReconciliationOutcome>([
-  PaymentReconciliationOutcome.complete,
-  PaymentReconciliationOutcome.error,
-  PaymentReconciliationOutcome.partial,
+const TERMINAL_OUTCOMES = new Set<PaymentReconciliationStatus>([
+  PaymentReconciliationStatus.completed,
+  PaymentReconciliationStatus.failed,
+  PaymentReconciliationStatus.partial,
 ]);
 
-const isTerminalOutcome = (outcome?: PaymentReconciliationOutcome): boolean =>
+const isTerminalOutcome = (outcome?: PaymentReconciliationStatus): boolean =>
   outcome !== undefined && TERMINAL_OUTCOMES.has(outcome);
 
 export function usePaymentReconciliationStatus(

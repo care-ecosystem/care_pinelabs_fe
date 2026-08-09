@@ -13,11 +13,12 @@ import PluginComponent from "@/components/ui/plug-component";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { toast } from "@/lib/utils";
+import { DeviceCareMetadata } from "@/types/device";
 
 
 interface ConfigureFormProps {
-    metadata: Record<string, any>;
-    onChange: (metadata: Record<string, any>) => void;
+    metadata: DeviceCareMetadata;
+    onChange: (metadata: DeviceCareMetadata) => void;
 }
 
 
