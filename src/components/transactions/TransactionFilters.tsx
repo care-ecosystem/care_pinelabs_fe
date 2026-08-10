@@ -141,15 +141,17 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.partial]: "status_partial",
   [PaymentReconciliationStatus.started]: "status_started",
   [PaymentReconciliationStatus.timeout]: "status_timeout",
+  [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
 const STATUS_BADGE_COLORS: Record<string, StatusBadgeColor> = {
-  [PaymentReconciliationStatus.in_progress]: "warning",
+  [PaymentReconciliationStatus.in_progress]: "info",
   [PaymentReconciliationStatus.completed]: "success",
   [PaymentReconciliationStatus.failed]: "danger",
-  [PaymentReconciliationStatus.partial]: "warning",
+  [PaymentReconciliationStatus.partial]: "caution",
   [PaymentReconciliationStatus.started]: "warning",
-  [PaymentReconciliationStatus.timeout]: "warning",
+  [PaymentReconciliationStatus.timeout]: "danger",
+  [PaymentReconciliationStatus.cancelled]: "danger",
 };
 
 export const TransactionFilters: FC<TransactionFiltersProps> = ({
@@ -203,6 +205,15 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
 
   const terminals = terminalsResponse || [];
   const selectedTerminal = terminals.find((t) => t.id === filters.terminal);
+
+  const configuredPinelabsMethodValues = new Set(
+    (pinelabsConfig?.payment_method_mappings ?? []).map(
+      (mapping) => mapping.pinelabs_method,
+    ),
+  );
+  const configuredPaymentModes = PINELABS_PAYMENT_MODES.filter((mode) =>
+    configuredPinelabsMethodValues.has(mode.value),
+  );
 
   const { data: resolvedUser } = useQuery({
     queryKey: ["pinelabs_user", facilityId, filters.createdBy],
@@ -335,11 +346,11 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         ],
     },
     {
-      value: PaymentReconciliationStatus.partial,
-      label: t("status_partial"),
+      value: PaymentReconciliationStatus.cancelled,
+      label: t("status_cancelled"),
       color:
         STATUS_BADGE_COLOR_CLASSES[
-          STATUS_BADGE_COLORS[PaymentReconciliationStatus.partial]
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.cancelled]
         ],
     },
     {
@@ -348,6 +359,14 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       color:
         STATUS_BADGE_COLOR_CLASSES[
           STATUS_BADGE_COLORS[PaymentReconciliationStatus.timeout]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.partial,
+      label: t("status_partial"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.partial]
         ],
     },
   ];
@@ -418,7 +437,11 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       {/* Payment method - mandatory, kept outside the clubbed popover */}
       <div className="w-full sm:w-64">
         <Select
-          value={filters.method || PINELABS_PAYMENT_MODES[0].value}
+          value={
+            filters.method ||
+            configuredPaymentModes[0]?.value ||
+            PINELABS_PAYMENT_MODES[0].value
+          }
           onValueChange={(value) => {
             onFiltersChange({
               ...filters,
@@ -433,7 +456,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {PINELABS_PAYMENT_MODES.map((mode) => (
+            {configuredPaymentModes.map((mode) => (
               <SelectItem key={mode.value} value={mode.value}>
                 {t(mode.labelKey)}
               </SelectItem>

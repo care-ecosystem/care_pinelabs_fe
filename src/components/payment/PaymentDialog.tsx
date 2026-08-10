@@ -85,6 +85,9 @@ const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
     case PaymentReconciliationStatus.completed:
       return "default";
     case PaymentReconciliationStatus.in_progress:
+      return "info";
+    case PaymentReconciliationStatus.partial:
+      return "caution";
     case PaymentReconciliationStatus.started:
       return "secondary";
     case PaymentReconciliationStatus.cancelled:

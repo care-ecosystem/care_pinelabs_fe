@@ -102,8 +102,14 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
       case PaymentReconciliationStatus.completed:
         return "success";
       case PaymentReconciliationStatus.failed:
+      case PaymentReconciliationStatus.cancelled:
+      case PaymentReconciliationStatus.timeout:
         return "danger";
+      case PaymentReconciliationStatus.in_progress:
+        return "info";
       case PaymentReconciliationStatus.partial:
+        return "caution";
+      case PaymentReconciliationStatus.started:
         return "warning";
       default:
         return "warning";
