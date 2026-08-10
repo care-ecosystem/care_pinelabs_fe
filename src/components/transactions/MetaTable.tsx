@@ -48,7 +48,8 @@ export const MetaTable: FC<MetaTableProps> = ({ data }) => {
       const modeValue = String(value);
       const label = PAYMENT_MODE_LABELS[modeValue];
       if (label) {
-        return `${modeValue} (${label})`;
+        return `${label} (${modeValue})`;
+
       }
     }
 

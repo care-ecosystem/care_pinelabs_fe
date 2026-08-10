@@ -21,10 +21,9 @@ import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationPaymentMethod,
   PaymentReconciliationType,
-  PaymentReconciliationStatus,
 } from "@/types/payment_reconciliation";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { PaymentMode, UploadTransactionRequest } from "@/types/gateway";
@@ -58,7 +57,7 @@ export type PaymentDialogProps = {
 const SUPPORTED_METHODS = new Set([
   PaymentReconciliationPaymentMethod.debc,
   PaymentReconciliationPaymentMethod.ccca,
-  PaymentReconciliationPaymentMethod.cash,
+  // PaymentReconciliationPaymentMethod.cash,
 ]);
 
 const CARD_METHODS = new Set([
@@ -83,11 +82,17 @@ const derivePaymentMode = (method: string): PaymentMode =>
 
 const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
   switch (status) {
-    case PaymentReconciliationStatus.active:
+    case PaymentReconciliationStatus.completed:
       return "default";
-    case PaymentReconciliationStatus.draft:
+    case PaymentReconciliationStatus.in_progress:
+      return "info";
+    case PaymentReconciliationStatus.partial:
+      return "caution";
+    case PaymentReconciliationStatus.started:
       return "secondary";
     case PaymentReconciliationStatus.cancelled:
+    case PaymentReconciliationStatus.failed:
+    case PaymentReconciliationStatus.timeout:
       return "destructive";
     default:
       return "outline";
@@ -96,12 +101,20 @@ const getStatusBadgeVariant = (status: PaymentReconciliationStatus) => {
 
 const getStatusLabel = (status: PaymentReconciliationStatus) => {
   switch (status) {
-    case PaymentReconciliationStatus.active:
+    case PaymentReconciliationStatus.completed:
       return "status_completed";
-    case PaymentReconciliationStatus.draft:
-      return "status_pending";
+    case PaymentReconciliationStatus.in_progress:
+      return "status_in_progress";
+    case PaymentReconciliationStatus.started:
+      return "status_started";
     case PaymentReconciliationStatus.cancelled:
       return "status_cancelled";
+    case PaymentReconciliationStatus.failed:
+      return "status_failed";
+    case PaymentReconciliationStatus.timeout:
+      return "status_timeout";
+    case PaymentReconciliationStatus.partial:
+      return "status_partial";
     default:
       return "status";
   }
@@ -146,17 +159,21 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationOutcome.complete) {
-        if (pr.reference_number !== undefined) {
-          form?.setValue("reference_number", pr.reference_number ?? "");
+      if (pr.status === PaymentReconciliationStatus.completed) {
+        if (pr.transaction_id !== undefined) {
+          form?.setValue("reference_number", pr.transaction_id ?? "");
         }
         if (pr.authorization !== undefined) {
           form?.setValue("authorization", pr.authorization ?? "");
         }
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.error) {
+      } else if (
+        pr.status === PaymentReconciliationStatus.failed ||
+        pr.status === PaymentReconciliationStatus.cancelled ||
+        pr.status === PaymentReconciliationStatus.timeout
+      ) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
+      } else if (pr.status === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
       if (invoice?.id) {
@@ -185,10 +202,12 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
+  const showSuccess = livePr?.status === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationOutcome.error ||
-    livePr?.outcome === PaymentReconciliationOutcome.partial;
+    livePr?.status === PaymentReconciliationStatus.failed ||
+    livePr?.status === PaymentReconciliationStatus.cancelled ||
+    livePr?.status === PaymentReconciliationStatus.timeout ||
+    livePr?.status === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -272,6 +291,9 @@ export const PaymentDialog: FC<PaymentDialogProps> = ({
       setSettledPr(null);
       setPollingTimedOut(false);
       toast.success(t("toast_collect_payment_on_terminal"));
+      queryClient.invalidateQueries({
+        queryKey: ["payment_reconciliations"],
+      });
     },
     onError: (error: unknown) => {
       toast.error(
@@ -533,12 +555,12 @@ export const InProgressView: FC<InProgressViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-6 text-center dark:border-blue-800 dark:bg-blue-950">
-        <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-blue-600 dark:text-blue-300" />
-        <p className="mt-3 text-sm font-medium text-blue-800 dark:text-blue-200">
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-6 text-center dark:border-gray-700 dark:bg-gray-900">
+        <Loader2Icon className="mx-auto h-10 w-10 animate-spin text-gray-900 dark:text-gray-100" />
+        <p className="mt-3 text-sm font-medium text-gray-950 dark:text-gray-100">
           {t("transaction_in_progress")}
         </p>
-        <p className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+        <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
           {isPolling
             ? t("waiting_for_customer")
             : t("checking_status")}
@@ -584,12 +606,12 @@ export const SuccessView: FC<SuccessViewProps> = ({
         <p className="mt-3 text-sm font-semibold text-green-800 dark:text-green-200">
           {t("payment_completed_successfully")}
         </p>
-        {pr.reference_number ? (
+        {pr.transaction_id ? (
           <div className="mt-3 space-y-1">
             <p className="text-xs uppercase tracking-wide text-green-600 dark:text-green-400">
               {t("rrn")}</p>
             <p className="text-2xl font-bold text-green-900 dark:text-green-100">
-              {pr.reference_number}
+              {pr.transaction_id}
             </p>
           </div>
         ) : null}
@@ -635,7 +657,7 @@ type FailureViewProps = {
 
 export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amount }) => {
   const { t } = useTranslation(I18NNAMESPACE);
-  const isPartial = pr.outcome === PaymentReconciliationOutcome.partial;
+  const isPartial = pr.status === PaymentReconciliationStatus.partial;
   return (
     <div className="space-y-4">
       <div
@@ -684,8 +706,8 @@ export const FailureView: FC<FailureViewProps> = ({ pr, paymentMethodLabel, amou
         </div>
         <SummaryRow label={t("payment_method")} value={paymentMethodLabel} />
         <SummaryRow label={t("amount")} value={formatCurrency(amount)} />
-        {pr.reference_number ? (
-          <SummaryRow label={t("rrn")} value={pr.reference_number} mono />
+        {pr.transaction_id ? (
+          <SummaryRow label={t("rrn")} value={pr.transaction_id} mono />
         ) : null}
       </div>
 

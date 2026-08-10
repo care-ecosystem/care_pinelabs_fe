@@ -42,12 +42,16 @@ import {
   PaymentReconciliation,
   PaymentReconciliationIssuerType,
   PaymentReconciliationKind,
-  PaymentReconciliationOutcome,
+  PaymentReconciliationStatus,
   PaymentReconciliationType,
 } from "@/types/payment_reconciliation";
 import { ShortcutBadge } from "@/components/common/ShortcutBadge";
 import { useButtonShortcut } from "@/hooks/useButtonShortcut";
 import { Input } from "@/components/ui/input";
+import {
+  getStoredTerminalSelection,
+  setStoredTerminalSelection,
+} from "@/lib/terminalSession";
 
 
 /**
@@ -105,6 +109,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
     enabled: !!facilityId && isOpen,
   });
 
+  const { data: allPosTerminals } = useQuery({
+    queryKey: ["pinelabs_config", pinelabsConfig?.id, "pos-terminals", "all"],
+    queryFn: () => apis.pinelabs_config.getTerminals(pinelabsConfig!.id, false),
+    enabled: !!pinelabsConfig?.id && isOpen,
+  });
+
   const allowPartialPayment = pinelabsConfig?.allow_partial_payment ?? false;
 
   useEffect(() => {
@@ -120,10 +130,27 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       }
     }
   }, [pinelabsConfig?.payment_method_mappings]);
+  useEffect(() => {
+    if (!isOpen || !facilityId || selectedTerminal) return;
+    const stored = getStoredTerminalSelection(facilityId);
+    if (stored) {
+      setSelectedTerminal(stored.terminalId);
+      setSelectedLocation(stored.location);
+    }
+  }, [isOpen, facilityId, selectedTerminal]);
 
-  // Pre-fill the partial-payment amount with the amount due once it's
-  // known, rather than leaving the field empty with a placeholder - the
-  // user can then clear it and type a different amount if they want to.
+  useEffect(() => {
+    if (!selectedTerminal || !allPosTerminals) return;
+    const isStillEligible = allPosTerminals.some(
+      (terminal) => terminal.id === selectedTerminal
+    );
+    if (!isStillEligible) {
+      setSelectedTerminal(undefined);
+      setSelectedLocation(null);
+      toast.warning(t("error_terminal_no_longer_available"));
+    }
+  }, [selectedTerminal, allPosTerminals, t]);
+
   useEffect(() => {
     if (isOpen && allowPartialPayment) {
       setTenderedAmount(amount.toFixed(2));
@@ -156,11 +183,25 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const handleSettled = useCallback(
     (pr: PaymentReconciliation) => {
       setSettledPr(pr);
-      if (pr.outcome === PaymentReconciliationOutcome.complete) {
+      const paidSuccessfully =
+        pr.status === PaymentReconciliationStatus.completed ||
+        pr.status === PaymentReconciliationStatus.partial;
+      if (paidSuccessfully && selectedTerminal) {
+        setStoredTerminalSelection(facilityId, {
+          terminalId: selectedTerminal,
+          location: selectedLocation,
+        });
+      }
+
+      if (pr.status === PaymentReconciliationStatus.completed) {
         toast.success(t("toast_payment_completed_successfully"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.error) {
+      } else if (
+        pr.status === PaymentReconciliationStatus.failed ||
+        pr.status === PaymentReconciliationStatus.cancelled ||
+        pr.status === PaymentReconciliationStatus.timeout
+      ) {
         toast.error(t("toast_payment_failed_on_terminal"));
-      } else if (pr.outcome === PaymentReconciliationOutcome.partial) {
+      } else if (pr.status === PaymentReconciliationStatus.partial) {
         toast.warning(t("toast_payment_partially_completed"));
       }
 
@@ -171,7 +212,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
         queryKey: ["payment_reconciliations"],
       });
     },
-    [invoice.id, queryClient, t]
+    [invoice.id, queryClient, t, selectedTerminal, selectedLocation, facilityId]
   );
 
   const handleTimeout = useCallback(() => {
@@ -188,10 +229,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const livePr = settledPr ?? polledPr;
   const transactionNumber = (livePr?.meta?.pinelabs?.transaction_number as string | null) ?? undefined;
   const transactionReferenceId = (livePr?.meta?.pinelabs?.transaction_reference_id as string | null) ?? undefined;
-  const showSuccess = livePr?.outcome === PaymentReconciliationOutcome.complete;
+  const showSuccess = livePr?.status === PaymentReconciliationStatus.completed;
   const showFailure =
-    livePr?.outcome === PaymentReconciliationOutcome.error ||
-    livePr?.outcome === PaymentReconciliationOutcome.partial;
+    livePr?.status === PaymentReconciliationStatus.failed ||
+    livePr?.status === PaymentReconciliationStatus.cancelled ||
+    livePr?.status === PaymentReconciliationStatus.timeout ||
+    livePr?.status === PaymentReconciliationStatus.partial;
   const isTransactionInProgress =
     !!prId && !showSuccess && !showFailure && !pollingTimedOut;
 
@@ -218,6 +261,14 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   const buildUploadPayload = useCallback((): UploadTransactionRequest | null => {
     if (!selectedTerminal) {
       toast.error(t("error_please_select_terminal"));
+      return null;
+    }
+
+    if (
+      allPosTerminals &&
+      !allPosTerminals.some((terminal) => terminal.id === selectedTerminal)
+    ) {
+      toast.error(t("error_terminal_no_longer_available"));
       return null;
     }
 
@@ -264,7 +315,7 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       disposition: null,
       note: null,
     };
-  }, [amount, invoice, selectedLocation, selectedTerminal, paymentMethod, pinelabsConfig?.payment_method_mappings, tenderedAmount, allowPartialPayment, t]);
+  }, [amount, invoice, selectedLocation, selectedTerminal, allPosTerminals, paymentMethod, pinelabsConfig?.payment_method_mappings, tenderedAmount, allowPartialPayment, t]);
 
   const uploadTransactionMutation = useMutation({
     mutationFn: apis.gateway.upload_transaction,
@@ -273,6 +324,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
       setSettledPr(null);
       setPollingTimedOut(false);
       toast.success(t("toast_collect_payment_on_terminal"));
+      queryClient.invalidateQueries({
+        queryKey: ["payment_reconciliations"],
+      });
     },
     onError: (error: unknown) => {
       toast.error(

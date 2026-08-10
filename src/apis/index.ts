@@ -25,6 +25,7 @@ import {
   UpdatePinelabsConfigBody,
 } from "@/types/pinelabs_config";
 import { Device, DeviceListParams } from "@/types/device";
+import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
 
 export const apis = {
   invoices: {
@@ -256,7 +257,7 @@ export const apis = {
     ) => {
       const cleanParams = Object.fromEntries(
         Object.entries({
-          limit: 20,
+          limit: DEFAULT_PAGE_SIZE,
           offset: 0,
           ordering: "-modified_date",
           ...params,
@@ -267,6 +268,39 @@ export const apis = {
 
       return await request<PaginatedResponse<PaymentReconciliation>>(
         `/api/v1/facility/${facilityId}/payment_reconciliation/${queryString(cleanParams)}`,
+      );
+    },
+  },
+  pinelabs_transactions: {
+    list: async (
+      facilityId: string,
+      params?: {
+        offset?: number;
+        limit?: number;
+        ordering?: string;
+        created_date_after?: string;
+        created_date_before?: string;
+        status?: string;
+        method?: string;
+        location?: string;
+        terminal?: string;
+        created_by?: string;
+      },
+    ) => {
+      const cleanParams = Object.fromEntries(
+        Object.entries({
+          limit: DEFAULT_PAGE_SIZE,
+          offset: 0,
+          ordering: "-modified_date",
+          ...params,
+          facility_id: facilityId,
+        }).filter(
+          ([, value]) => value !== undefined && value !== null && value !== "",
+        ),
+      ) as Record<string, string | number>;
+
+      return await request<PaginatedResponse<PaymentReconciliation>>(
+        `/api/care_pinelabs/pinelabs_transactions/${queryString(cleanParams)}`,
       );
     },
   },

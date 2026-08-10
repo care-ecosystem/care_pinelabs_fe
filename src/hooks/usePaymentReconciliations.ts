@@ -40,13 +40,16 @@ export const usePaymentReconciliations = (
   if (filters.location && filters.location.trim() !== "") {
     params.location = filters.location.trim();
   }
+  if (filters.terminal && filters.terminal.trim() !== "") {
+    params.terminal = filters.terminal.trim();
+  }
   if (filters.createdBy && filters.createdBy.trim() !== "") {
     params.created_by = filters.createdBy.trim();
   }
 
   return useQuery({
     queryKey: ["payment_reconciliations", facilityId, params],
-    queryFn: () => apis.payment_reconciliations.list(facilityId, params),
+    queryFn: () => apis.pinelabs_transactions.list(facilityId, params),
     enabled: !!facilityId && enabled,
   });
 };

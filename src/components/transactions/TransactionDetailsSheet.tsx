@@ -13,7 +13,7 @@ import {
   StatusBadgeColor,
 } from "@/components/ui/status-badge";
 import { Button } from "@/components/ui/button";
-import { PaymentReconciliationOutcome } from "@/types/payment_reconciliation";
+import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
 import { formatCurrency, toast } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apis } from "@/apis";
@@ -22,12 +22,14 @@ import { MetaTable } from "./MetaTable";
 import { getPinelabsErrorMessage } from "@/lib/errors";
 
 type TransactionDetailsSheetProps = {
+  facilityId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   transactionId: string | null;
 };
 
 export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
+  facilityId,
   open,
   onOpenChange,
   transactionId,
@@ -62,12 +64,19 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
     return pinelabs.terminal_id as string | null;
   }, [transaction]);
 
-  // Fetch terminal details if terminal ID exists
-  const { data: terminal } = useQuery({
-    queryKey: ["pinelabs_terminal", terminalId],
-    queryFn: () => apis.pinelabs_terminals.get(terminalId!),
-    enabled: !!terminalId,
+  const { data: pinelabsConfig } = useQuery({
+    queryKey: ["pinelabs_config", facilityId],
+    queryFn: () => apis.pinelabs_config.get(facilityId),
+    enabled: !!facilityId && !!terminalId,
   });
+
+  const { data: posTerminals } = useQuery({
+    queryKey: ["pinelabs_config", pinelabsConfig?.id, "pos-terminals", "all"],
+    queryFn: () => apis.pinelabs_config.getTerminals(pinelabsConfig!.id, false),
+    enabled: !!pinelabsConfig?.id,
+  });
+
+  const terminalDevice = posTerminals?.find((t) => t.id === terminalId)?.device;
 
   // Refresh transaction status mutation
   const refreshStatusMutation = useMutation({
@@ -125,20 +134,26 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
     cancelTransactionMutation.mutate({ payment_reconciliation: transactionId });
   };
 
-  // Check if transaction is in progress (queued status)
-  const isInProgress = transaction?.outcome === PaymentReconciliationOutcome.queued;
+  // Check if transaction is in progress (in_progress status)
+  const isInProgress = transaction?.status === PaymentReconciliationStatus.in_progress;
 
   if (!transactionId) return null;
 
   const getStatusBadgeColor = (
-    outcome: PaymentReconciliationOutcome,
+    outcome: PaymentReconciliationStatus,
   ): StatusBadgeColor => {
     switch (outcome) {
-      case PaymentReconciliationOutcome.complete:
+      case PaymentReconciliationStatus.completed:
         return "success";
-      case PaymentReconciliationOutcome.error:
+      case PaymentReconciliationStatus.failed:
+      case PaymentReconciliationStatus.cancelled:
+      case PaymentReconciliationStatus.timeout:
         return "danger";
-      case PaymentReconciliationOutcome.partial:
+      case PaymentReconciliationStatus.in_progress:
+        return "info";
+      case PaymentReconciliationStatus.partial:
+        return "caution";
+      case PaymentReconciliationStatus.started:
         return "warning";
       default:
         return "warning";
@@ -210,8 +225,8 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
             <p className="text-sm font-medium text-gray-500 mb-1">
               {t("status")}
             </p>
-            <StatusBadge color={getStatusBadgeColor(transaction.outcome)}>
-              {t(`status_${transaction.outcome}`)}
+            <StatusBadge color={getStatusBadgeColor(transaction.status)}>
+              {t(`status_${transaction.status}`)}
             </StatusBadge>
           </div>
 
@@ -238,13 +253,13 @@ export const TransactionDetailsSheet: FC<TransactionDetailsSheetProps> = ({
           </div>
 
           {/* Terminal Information */}
-          {terminal && (
+          {terminalDevice && (
             <div>
               <p className="text-sm font-medium text-gray-500 mb-1">
                 {t("terminal")}
               </p>
-              <p className="text-base">
-                {terminal.name} ({terminal.client_id})
+              <p className="text-base font-medium">
+                {terminalDevice.registered_name}
               </p>
             </div>
           )}

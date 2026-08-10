@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/table";
 import { usePaymentReconciliations } from "@/hooks/usePaymentReconciliations";
 import { TransactionFilters } from "@/types/transaction_filters";
-import { PaymentReconciliationOutcome } from "@/types/payment_reconciliation";
+import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
 import { formatCurrency } from "@/lib/utils";
+import { getTransactionPaymentMethodLabelKey } from "@/lib/paymentMethods";
 import dayjs from "@/lib/dayjs";
 import {
   CreditCardIcon,
@@ -32,6 +33,7 @@ type TransactionsTableProps = {
   facilityId: string;
   filters: TransactionFilters;
   page: number;
+  limit: number;
   ordering: string;
   enabled?: boolean;
   onPageChange: (page: number) => void;
@@ -39,7 +41,6 @@ type TransactionsTableProps = {
   onCountChange?: (count: number) => void;
 };
 
-export const ITEMS_PER_PAGE = 20;
 const COLUMN_COUNT = 8;
 
 const TableSkeleton = () => (
@@ -71,6 +72,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   facilityId,
   filters,
   page,
+  limit,
   ordering,
   enabled = true,
   onPageChange,
@@ -82,7 +84,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   const { data, isLoading, error } = usePaymentReconciliations(
     facilityId,
     filters,
-    { offset: page * ITEMS_PER_PAGE, limit: ITEMS_PER_PAGE },
+    { offset: page * limit, limit },
     ordering,
     enabled,
   );
@@ -94,14 +96,20 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   }, [enabled, data?.count, onCountChange]);
 
   const getStatusBadgeColor = (
-    outcome: PaymentReconciliationOutcome,
+    outcome: PaymentReconciliationStatus,
   ): StatusBadgeColor => {
     switch (outcome) {
-      case PaymentReconciliationOutcome.complete:
+      case PaymentReconciliationStatus.completed:
         return "success";
-      case PaymentReconciliationOutcome.error:
+      case PaymentReconciliationStatus.failed:
+      case PaymentReconciliationStatus.cancelled:
+      case PaymentReconciliationStatus.timeout:
         return "danger";
-      case PaymentReconciliationOutcome.partial:
+      case PaymentReconciliationStatus.in_progress:
+        return "info";
+      case PaymentReconciliationStatus.partial:
+        return "caution";
+      case PaymentReconciliationStatus.started:
         return "warning";
       default:
         return "warning";
@@ -121,8 +129,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   }
 
   const transactions = data?.results || [];
-  const hasNext = !!data?.next;
-  const hasPrevious = !!data?.previous;
+  const hasNext = (data?.count ?? 0) > (page + 1) * limit;
+  const hasPrevious = page > 0;
 
   return (
     <div>
@@ -140,6 +148,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
               <TableHead>{t("invoice")}</TableHead>
               <TableHead>{t("payment_method")}</TableHead>
               <TableHead>{t("amount")}</TableHead>
+              <TableHead>{t("transaction_number")}</TableHead>
               <TableHead>{t("reference_number")}</TableHead>
               <TableHead>{t("last_updated_date_time")}</TableHead>
               <TableHead>{t("status")}</TableHead>
@@ -149,7 +158,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
             {transactions.map((transaction) => (
               <TableRow
                 key={transaction.id}
-                onClick={() => onRowClick(transaction.id)}
+                onClick={() => onRowClick(transaction.payment_reconciliation || "")}
                 className="cursor-pointer"
               >
                 <TableCell onClick={(e) => e.stopPropagation()}>
@@ -196,10 +205,11 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                   )}
                 </TableCell>
                 <TableCell>
-                  {t(`payment_method_${transaction.method}`, transaction.method)}
+                  {t(getTransactionPaymentMethodLabelKey(transaction.method))}
                 </TableCell>
                 <TableCell>{formatCurrency(Number(transaction.amount))}</TableCell>
-                <TableCell>{transaction.reference_number || "NA"}</TableCell>
+                <TableCell>{transaction.transaction_number || "NA"}</TableCell>
+                <TableCell>{transaction.transaction_id || "NA"}</TableCell>
                 <TableCell>
                   {transaction.modified_date
                     ? dayjs(transaction.modified_date).format(
@@ -208,8 +218,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
                     : "NA"}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge color={getStatusBadgeColor(transaction.outcome)}>
-                    {t(`status_${transaction.outcome}`)}
+                  <StatusBadge color={getStatusBadgeColor(transaction.status)}>
+                    {t(`status_${transaction.status}`)}
                   </StatusBadge>
                 </TableCell>
               </TableRow>
@@ -223,8 +233,8 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         <div className="flex items-center justify-between mt-4">
           <div className="text-sm text-gray-700">
             {t("showing_results", {
-              from: page * ITEMS_PER_PAGE + 1,
-              to: Math.min((page + 1) * ITEMS_PER_PAGE, data?.count || 0),
+              from: page * limit + 1,
+              to: Math.min((page + 1) * limit, data?.count || 0),
               total: data?.count || 0,
             })}
           </div>

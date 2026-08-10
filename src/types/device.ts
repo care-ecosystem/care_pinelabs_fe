@@ -9,7 +9,8 @@ export interface DeviceCareMetadata {
   store_id?: string;
   client_id?: string;
   terminal_name?: string;
-  [key: string]: any;
+  is_active?: boolean;
+  [key: string]: unknown;
 }
 
 export interface Device {
@@ -26,14 +27,16 @@ export interface Device {
   user_friendly_name: string | null;
   model_number: string | null;
   part_number: string | null;
-  contact: Record<string, any>;
+  // Opaque blobs this plugin never reads beyond passing through - kept as
+  // `unknown` rather than modeled, since the shapes aren't otherwise needed.
+  contact: Record<string, unknown>;
   care_type: string; // e.g., "pos-terminal"
   care_metadata?: DeviceCareMetadata;
   current_location?: DeviceLocation;
-  current_encounter: any;
-  created_by?: any;
-  updated_by?: any;
-  managing_organization: any;
+  current_encounter: unknown;
+  created_by?: unknown;
+  updated_by?: unknown;
+  managing_organization: unknown;
 }
 
 export interface DeviceListParams {

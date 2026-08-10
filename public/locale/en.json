@@ -8,7 +8,7 @@
   "switch_to_pinelabs_terminal": "Switch to Pinelabs terminal",
   "payment_warning_message": "{{amount}} will be collected via the Pinelabs POS terminal using {{paymentMethod}}. Confirm the terminal and location before sending the request.",
 
-  "payment_method": "Payment Method",
+  "payment_method": "Method",
   "amount": "Amount",
   "amount_due": "Amount Due",
   "invoice_total": "Invoice total:",
@@ -80,6 +80,7 @@
 
   "error_please_select_terminal": "Please select a terminal",
   "error_please_select_location": "Please select a location",
+  "error_terminal_no_longer_available": "The previously selected terminal is no longer available. Please select a terminal again.",
   "error_account_required": "Account is required to record a payment",
   "error_account_not_found": "Account not found",
   "error_payment_method_required": "Payment method is required",
@@ -150,7 +151,10 @@
   "status_complete": "Complete",
   "status_error": "Error",
   "status_partial": "Partial",
-  "status_queued": "Queued",
+  "status_in_progress": "In Progress",
+  "status_started": "Started",
+  "status_failed": "Failed",
+  "status_timeout": "Timeout",
   "loading": "Loading...",
   "loading_transactions": "Loading transactions...",
   "error_loading_transactions": "Failed to load transactions. Please try again.",

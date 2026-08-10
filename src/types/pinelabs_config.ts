@@ -1,5 +1,7 @@
 import { User } from "@/types/user";
 
+export type PinelabsPaymentFlow = "pinelabs" | "native";
+
 /**
  * Full Pinelabs Config response with all nested data
  */
@@ -7,7 +9,7 @@ import { User } from "@/types/user";
 export interface PinelabsConfigFull {
   id: string;
   facility_id: string;
-  default_payment_flow: "pinelabs";
+  default_payment_flow: PinelabsPaymentFlow;
   allow_advance_payment: boolean;
   allow_partial_payment: boolean;
   pinelabs_merchant_id: string;
@@ -50,7 +52,7 @@ export interface Device {
 
 export interface CreatePinelabsConfigBody {
   facility_id: string;
-  default_payment_flow: "pinelabs";
+  default_payment_flow: PinelabsPaymentFlow;
   allow_advance_payment: boolean;
   allow_partial_payment: boolean;
   pinelabs_merchant_id: string;
@@ -70,7 +72,7 @@ export interface CreatePosTerminal {
 }
 
 export interface UpdatePinelabsConfigBody {
-  default_payment_flow?: "pinelabs";
+  default_payment_flow?: PinelabsPaymentFlow;
   allow_advance_payment?: boolean;
   allow_partial_payment?: boolean;
   pinelabs_merchant_id?: string;

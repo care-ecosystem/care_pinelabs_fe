@@ -11,7 +11,7 @@ import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliati
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   [PaymentReconciliationPaymentMethod.debc]: "payment_method_debit_card",
   [PaymentReconciliationPaymentMethod.ccca]: "payment_method_credit_card",
-  [PaymentReconciliationPaymentMethod.cash]: "payment_method_cash_upi",
+  // [PaymentReconciliationPaymentMethod.cash]: "payment_method_cash_upi",
   [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_bharat_qr",
   // [PaymentReconciliationPaymentMethod.cchk]: "payment_method_cchk",
   // [PaymentReconciliationPaymentMethod.cdac]: "payment_method_cdac",
@@ -20,14 +20,14 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export enum PinelabsPaymentModeEnum {
   CARD = "1",
-  CASH = "2",
+  // CASH = "2",
   UPI_SALE = "10",
   UPI_BHARAT_QR = "11",
 }
 
 export const PINELABS_PAYMENT_MODES = [
   { value: PinelabsPaymentModeEnum.CARD, labelKey: "pinelabs_payment_mode_card" },
-  { value: PinelabsPaymentModeEnum.CASH, labelKey: "pinelabs_payment_mode_cash" },
+  // { value: PinelabsPaymentModeEnum.CASH, labelKey: "pinelabs_payment_mode_cash" },
   { value: PinelabsPaymentModeEnum.UPI_SALE, labelKey: "pinelabs_payment_mode_upi_sale" },
   { value: PinelabsPaymentModeEnum.UPI_BHARAT_QR, labelKey: "pinelabs_payment_mode_upi_bharat_qr" },
 ];
@@ -37,7 +37,7 @@ export const DEFAULT_PINELABS_PAYMENT_MODE_ICON: LucideIcon = CreditCard;
 
 export const PINELABS_PAYMENT_MODE_ICONS: Record<string, LucideIcon> = {
   [PinelabsPaymentModeEnum.CARD]: CreditCard,
-  [PinelabsPaymentModeEnum.CASH]: Banknote,
+  // [PinelabsPaymentModeEnum.CASH]: Banknote,
   [PinelabsPaymentModeEnum.UPI_SALE]: ScanQrCode,
   [PinelabsPaymentModeEnum.UPI_BHARAT_QR]: QrCode,
 };
@@ -89,4 +89,18 @@ export const isValidPinelabsPaymentMode = (
   return Object.values(PinelabsPaymentModeEnum).includes(
     value as PinelabsPaymentModeEnum
   );
+};
+
+/**
+ * @param method - Payment method value from a transaction
+ * @returns Translation key, or the raw value if no mapping is found
+ */
+export const getTransactionPaymentMethodLabelKey = (
+  method: string
+): string => {
+  const pinelabsMode = PINELABS_PAYMENT_MODES.find((mode) => mode.value === method);
+  if (pinelabsMode) {
+    return pinelabsMode.labelKey;
+  }
+  return getPaymentMethodLabelKey(method);
 };

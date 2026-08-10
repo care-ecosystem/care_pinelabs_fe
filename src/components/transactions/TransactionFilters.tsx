@@ -27,10 +27,8 @@ import {
   presetOptions,
 } from "@/components/transactions/DateRangeFilter";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
-import {
-  PaymentReconciliationStatus,
-  PaymentReconciliationPaymentMethod,
-} from "@/types/payment_reconciliation";
+import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
+import { PINELABS_PAYMENT_MODES } from "@/lib/paymentMethods";
 import {
   XIcon,
   Loader2Icon,
@@ -137,14 +135,22 @@ type TransactionFiltersProps = {
 };
 
 const STATUS_LABEL_KEYS: Record<string, string> = {
-  [PaymentReconciliationStatus.active]: "status_completed",
-  [PaymentReconciliationStatus.draft]: "status_pending",
+  [PaymentReconciliationStatus.in_progress]: "status_in_progress",
+  [PaymentReconciliationStatus.completed]: "status_completed",
+  [PaymentReconciliationStatus.failed]: "status_failed",
+  [PaymentReconciliationStatus.partial]: "status_partial",
+  [PaymentReconciliationStatus.started]: "status_started",
+  [PaymentReconciliationStatus.timeout]: "status_timeout",
   [PaymentReconciliationStatus.cancelled]: "status_cancelled",
 };
 
 const STATUS_BADGE_COLORS: Record<string, StatusBadgeColor> = {
-  [PaymentReconciliationStatus.active]: "success",
-  [PaymentReconciliationStatus.draft]: "warning",
+  [PaymentReconciliationStatus.in_progress]: "info",
+  [PaymentReconciliationStatus.completed]: "success",
+  [PaymentReconciliationStatus.failed]: "danger",
+  [PaymentReconciliationStatus.partial]: "caution",
+  [PaymentReconciliationStatus.started]: "warning",
+  [PaymentReconciliationStatus.timeout]: "danger",
   [PaymentReconciliationStatus.cancelled]: "danger",
 };
 
@@ -185,6 +191,30 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
   const locations = locationsResponse?.results || [];
   const selectedLocation = locations.find((l) => l.id === filters.location);
 
+  const { data: pinelabsConfig } = useQuery({
+    queryKey: ["pinelabs_config", facilityId],
+    queryFn: () => apis.pinelabs_config.get(facilityId),
+    enabled: !!facilityId,
+  });
+
+  const { data: terminalsResponse, isLoading: isTerminalsLoading } = useQuery({
+    queryKey: ["pinelabs_config", pinelabsConfig?.id, "pos-terminals", "all"],
+    queryFn: () => apis.pinelabs_config.getTerminals(pinelabsConfig!.id, false),
+    enabled: !!pinelabsConfig?.id,
+  });
+
+  const terminals = terminalsResponse || [];
+  const selectedTerminal = terminals.find((t) => t.id === filters.terminal);
+
+  const configuredPinelabsMethodValues = new Set(
+    (pinelabsConfig?.payment_method_mappings ?? []).map(
+      (mapping) => mapping.pinelabs_method,
+    ),
+  );
+  const configuredPaymentModes = PINELABS_PAYMENT_MODES.filter((mode) =>
+    configuredPinelabsMethodValues.has(mode.value),
+  );
+
   const { data: resolvedUser } = useQuery({
     queryKey: ["pinelabs_user", facilityId, filters.createdBy],
     queryFn: () => apis.users.get(facilityId, filters.createdBy as string),
@@ -209,6 +239,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       dateTo: undefined,
       status: "",
       location: "",
+      terminal: "",
     });
   };
 
@@ -219,6 +250,8 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       onFiltersChange({ ...filters, status: "" });
     } else if (key === "location") {
       onFiltersChange({ ...filters, location: "" });
+    } else if (key === "terminal") {
+      onFiltersChange({ ...filters, terminal: "" });
     }
   };
 
@@ -268,25 +301,48 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       operation: t("is"),
       summary: selectedLocation?.name || "",
     },
+    {
+      key: "terminal",
+      label: t("terminal"),
+      active: !!filters.terminal,
+      operation: t("is"),
+      summary: selectedTerminal?.device.registered_name || "",
+    },
   ];
 
   const activeCount = FILTER_FIELDS.filter((f) => f.active).length;
 
   const STATUS_OPTIONS: FilterOption[] = [
     {
-      value: PaymentReconciliationStatus.active,
-      label: t("status_completed"),
+      value: PaymentReconciliationStatus.started,
+      label: t("status_started"),
       color:
         STATUS_BADGE_COLOR_CLASSES[
-          STATUS_BADGE_COLORS[PaymentReconciliationStatus.active]
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.started]
         ],
     },
     {
-      value: PaymentReconciliationStatus.draft,
-      label: t("status_pending"),
+      value: PaymentReconciliationStatus.in_progress,
+      label: t("status_in_progress"),
       color:
         STATUS_BADGE_COLOR_CLASSES[
-          STATUS_BADGE_COLORS[PaymentReconciliationStatus.draft]
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.in_progress]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.completed,
+      label: t("status_completed"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.completed]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.failed,
+      label: t("status_failed"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.failed]
         ],
     },
     {
@@ -297,12 +353,33 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
           STATUS_BADGE_COLORS[PaymentReconciliationStatus.cancelled]
         ],
     },
+    {
+      value: PaymentReconciliationStatus.timeout,
+      label: t("status_timeout"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.timeout]
+        ],
+    },
+    {
+      value: PaymentReconciliationStatus.partial,
+      label: t("status_partial"),
+      color:
+        STATUS_BADGE_COLOR_CLASSES[
+          STATUS_BADGE_COLORS[PaymentReconciliationStatus.partial]
+        ],
+    },
   ];
 
   const LOCATION_OPTIONS: FilterOption[] = locations.map((location) => ({
     value: location.id,
     label: location.name,
     icon: LocationTypeIcons[location.form],
+  }));
+
+  const TERMINAL_OPTIONS: FilterOption[] = terminals.map((terminal) => ({
+    value: terminal.id,
+    label: terminal.device.registered_name,
   }));
 
   const renderEditor = (key: string) => {
@@ -341,6 +418,15 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             isLoadingOptions={isLocationsLoading}
           />
         );
+      case "terminal":
+        return (
+          <FilterOptionsList
+            options={TERMINAL_OPTIONS}
+            selectedValue={filters.terminal || ""}
+            onSelect={(value) => onFiltersChange({ ...filters, terminal: value })}
+            isLoadingOptions={isTerminalsLoading}
+          />
+        );
       default:
         return null;
     }
@@ -351,11 +437,15 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       {/* Payment method - mandatory, kept outside the clubbed popover */}
       <div className="w-full sm:w-64">
         <Select
-          value={filters.method || PaymentReconciliationPaymentMethod.ddpo}
+          value={
+            filters.method ||
+            configuredPaymentModes[0]?.value ||
+            PINELABS_PAYMENT_MODES[0].value
+          }
           onValueChange={(value) => {
             onFiltersChange({
               ...filters,
-              method: value as PaymentReconciliationPaymentMethod,
+              method: value as Filters["method"],
             });
           }}
         >
@@ -366,12 +456,11 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={PaymentReconciliationPaymentMethod.ddpo}>
-              {t("payment_method_upi")} / {t("payment_method_bharat_qr")}
-            </SelectItem>
-            <SelectItem value={PaymentReconciliationPaymentMethod.debc}>
-              {t("payment_method_card")}
-            </SelectItem>
+            {configuredPaymentModes.map((mode) => (
+              <SelectItem key={mode.value} value={mode.value}>
+                {t(mode.labelKey)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

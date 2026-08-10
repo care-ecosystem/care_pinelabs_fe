@@ -13,6 +13,12 @@ export enum PaymentReconciliationStatus {
   draft = "draft",
   entered_in_error = "entered_in_error",
 }
+// export enum PaymentReconciliationOutcome {
+//   active = "active",
+//   cancelled = "cancelled",
+//   draft = "draft",
+//   entered_in_error = "entered_in_error",
+// }
 
 export enum PaymentReconciliationKind {
   deposit = "deposit",
@@ -26,15 +32,17 @@ export enum PaymentReconciliationIssuerType {
   insurance = "insurance",
 }
 
-export enum PaymentReconciliationOutcome {
-  queued = "queued",
-  complete = "complete",
-  error = "error",
+export enum PaymentReconciliationStatus {
+  started = "started",
+  in_progress = "in_progress",
+  completed = "completed",
+  failed = "failed",
   partial = "partial",
+  timeout = "timeout",
 }
 
 export enum PaymentReconciliationPaymentMethod {
-  cash = "cash",
+  // cash = "cash",
   ccca = "ccca",
   cchk = "cchk",
   cdac = "cdac",
@@ -49,12 +57,15 @@ export type PaymentReconciliation = {
   status: PaymentReconciliationStatus;
   kind: PaymentReconciliationKind;
   issuer_type: PaymentReconciliationIssuerType;
-  outcome: PaymentReconciliationOutcome;
+  outcome: PaymentReconciliationStatus;
+  
   disposition?: string;
   created_date?: string;
   modified_date?: string;
   method: PaymentReconciliationPaymentMethod;
-  reference_number?: string;
+  transaction_id?: string;
+  transaction_number?: string;
+  payment_reconciliation?: string;
   authorization?: string;
   tendered_amount?: string;
   returned_amount?: string;
@@ -65,5 +76,6 @@ export type PaymentReconciliation = {
   is_credit_note: boolean;
   meta?: {
     pinelabs?: Record<string, unknown>;
+    terminal_id?: string
   };
 };
