@@ -1,4 +1,5 @@
 export const I18NNAMESPACE = "care_pinelabs_fe";
+export const PLUGIN_SLUG = "care_pinelabs_fe";
 
 function getNumberEnv(name: keyof ImportMetaEnv, fallback: number): number {
   const raw = import.meta.env?.[name];

@@ -13,12 +13,17 @@ export interface PinelabsConfigFull {
   allow_advance_payment: boolean;
   allow_partial_payment: boolean;
   pinelabs_merchant_id: string;
+  meta: PinelabsConfigMeta;
   payment_method_mappings: PaymentMethodMapping[];
   pos_terminals: PosTerminal[];
   created_by: User;
   updated_by: User;
   created_date: string;
   modified_date: string;
+}
+
+export interface PinelabsConfigMeta {
+  allow_manual_entry: boolean;
 }
 
 export interface PaymentMethodMapping {
@@ -57,6 +62,7 @@ export interface CreatePinelabsConfigBody {
   allow_partial_payment: boolean;
   pinelabs_merchant_id: string;
   pinelabs_security_token: string;
+  meta?: PinelabsConfigMeta;
   payment_method_mappings: CreatePaymentMethodMapping[];
   pos_terminals?: CreatePosTerminal[];
 }
@@ -77,6 +83,7 @@ export interface UpdatePinelabsConfigBody {
   allow_partial_payment?: boolean;
   pinelabs_merchant_id?: string;
   pinelabs_security_token?: string;
+  meta?: PinelabsConfigMeta;
   payment_method_mappings?: UpdatePaymentMethodMapping[];
   pos_terminals?: CreatePosTerminal[];
 }

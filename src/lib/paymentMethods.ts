@@ -1,4 +1,4 @@
-import { Banknote, CreditCard, QrCode, ScanQrCode, type LucideIcon } from "lucide-react";
+import { CreditCard, QrCode, ScanQrCode, Smartphone, ShoppingCart, type LucideIcon } from "lucide-react";
 
 import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliation";
 
@@ -13,16 +13,18 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   [PaymentReconciliationPaymentMethod.ccca]: "payment_method_credit_card",
   // [PaymentReconciliationPaymentMethod.cash]: "payment_method_cash_upi",
   [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_bharat_qr",
-  // [PaymentReconciliationPaymentMethod.cchk]: "payment_method_cchk",
-  // [PaymentReconciliationPaymentMethod.cdac]: "payment_method_cdac",
-  // [PaymentReconciliationPaymentMethod.chck]: "payment_method_chck",
+  [PaymentReconciliationPaymentMethod.cchk]: "payment_method_cchk",
+  [PaymentReconciliationPaymentMethod.cdac]: "payment_method_cdac",
+  [PaymentReconciliationPaymentMethod.chck]: "payment_method_chck",
 };
 
 export enum PinelabsPaymentModeEnum {
   CARD = "1",
   // CASH = "2",
+  PHONEPE = "8",
   UPI_SALE = "10",
   UPI_BHARAT_QR = "11",
+  AMAZON_PAY = "21",
 }
 
 export const PINELABS_PAYMENT_MODES = [
@@ -30,6 +32,8 @@ export const PINELABS_PAYMENT_MODES = [
   // { value: PinelabsPaymentModeEnum.CASH, labelKey: "pinelabs_payment_mode_cash" },
   { value: PinelabsPaymentModeEnum.UPI_SALE, labelKey: "pinelabs_payment_mode_upi_sale" },
   { value: PinelabsPaymentModeEnum.UPI_BHARAT_QR, labelKey: "pinelabs_payment_mode_upi_bharat_qr" },
+  { value: PinelabsPaymentModeEnum.PHONEPE, labelKey: "pinelabs_payment_mode_phonepe" },
+  { value: PinelabsPaymentModeEnum.AMAZON_PAY, labelKey: "pinelabs_payment_mode_amazon_pay" },
 ];
 
 
@@ -40,6 +44,8 @@ export const PINELABS_PAYMENT_MODE_ICONS: Record<string, LucideIcon> = {
   // [PinelabsPaymentModeEnum.CASH]: Banknote,
   [PinelabsPaymentModeEnum.UPI_SALE]: ScanQrCode,
   [PinelabsPaymentModeEnum.UPI_BHARAT_QR]: QrCode,
+  [PinelabsPaymentModeEnum.PHONEPE]: Smartphone,
+  [PinelabsPaymentModeEnum.AMAZON_PAY]: ShoppingCart,
 };
 
 /**

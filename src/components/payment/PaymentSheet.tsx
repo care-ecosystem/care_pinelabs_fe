@@ -441,12 +441,12 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
           </SheetDescription>
         </SheetHeader>
 
-        {isFormStep && (
+        {isFormStep && onSwitchToManual && (
           <div className="pt-4">
             <button
               type="button"
               onClick={() => {
-                onSwitchToManual?.();
+                onSwitchToManual();
               }}
               className="flex items-center gap-1.5 text-sm text-primary-600 hover:text-primary-700 font-medium transition-colors"
             >
