@@ -529,9 +529,9 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
               <div className="space-y-2">
                 <Label className="text-gray-950">{t("payment_method")}</Label>
                 {configLoading ? (
-                  <div className="flex items-center justify-center gap-2 py-4 border rounded bg-blue-50">
-                    <Loader2Icon className="size-4 animate-spin text-blue-600" />
-                    <p className="text-sm text-blue-600">{t("loading")}</p>
+                  <div className="flex items-center justify-center gap-2 py-4 border rounded bg-gray-50">
+                    <Loader2Icon className="size-4 animate-spin text-black" />
+                    <p className="text-sm text-black">{t("loading")}</p>
                   </div>
                 ) : configError ? (
                   <div className="text-sm text-red-600 py-4 border border-red-200 rounded px-3 bg-red-50">

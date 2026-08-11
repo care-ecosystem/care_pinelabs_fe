@@ -11,16 +11,13 @@ import { PaymentReconciliationPaymentMethod } from "@/types/payment_reconciliati
 export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   [PaymentReconciliationPaymentMethod.debc]: "payment_method_debit_card",
   [PaymentReconciliationPaymentMethod.ccca]: "payment_method_credit_card",
-  // [PaymentReconciliationPaymentMethod.cash]: "payment_method_cash_upi",
-  [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_bharat_qr",
-  [PaymentReconciliationPaymentMethod.cchk]: "payment_method_cchk",
-  [PaymentReconciliationPaymentMethod.cdac]: "payment_method_cdac",
-  [PaymentReconciliationPaymentMethod.chck]: "payment_method_chck",
+  [PaymentReconciliationPaymentMethod.ddpo]: "payment_method_direct_deposit",
+  [PaymentReconciliationPaymentMethod.chck]: "payment_method_check",
+  [PaymentReconciliationPaymentMethod.cdac]: "payment_method_credit_account",
 };
 
 export enum PinelabsPaymentModeEnum {
   CARD = "1",
-  // CASH = "2",
   PHONEPE = "8",
   UPI_SALE = "10",
   UPI_BHARAT_QR = "11",

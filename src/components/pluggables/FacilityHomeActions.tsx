@@ -471,27 +471,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     setTerminalsBaseline([]);
   };
 
-  const getAvailableCareMethodsForIndex = (currentIndex: number) => {
-    const selectedMethods = paymentMethodMappings
-      ?.map((mapping, index) => {
-        if (index === currentIndex) return null;
-        return mapping.care_method;
-      })
-      .filter(Boolean) as string[];
-
-    return CARE_METHOD_OPTIONS.filter(
-      (option) => !selectedMethods?.includes(option.value)
-    );
+  const getAvailableCareMethodsForIndex = () => {
+    return CARE_METHOD_OPTIONS;
   };
 
   const getFirstAvailableCareMethod = () => {
-    const selectedMethods = (paymentMethodMappings ?? [])
-      .map((mapping) => mapping.care_method)
-      .filter(Boolean) as string[];
-
-    return CARE_METHOD_OPTIONS.find(
-      (option) => !selectedMethods.includes(option.value)
-    );
+    return CARE_METHOD_OPTIONS[0];
   };
 
   const getAvailablePinelabsModesForIndex = (currentIndex: number) => {
@@ -582,8 +567,8 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
           <>
             {isConfigLoading || config ? (
               <div className="flex items-center justify-center gap-2 py-12">
-                <Loader2Icon className="size-5 animate-spin text-blue-600" />
-                <p className="text-sm text-gray-600">
+                <Loader2Icon className="size-5 animate-spin text-black" />
+                <p className="text-sm text-black">
                   {t("loading_configuration")}
                 </p>
               </div>
@@ -867,47 +852,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <FormField
                             control={createConfigForm.control}
-                            name={`payment_method_mappings.${index}.care_method`}
-                            rules={{
-                              required: t("error_payment_method_required"),
-                            }}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-col">
-                                <FormLabel aria-required>
-                                  {t("care_method")}
-                                </FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  value={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger
-                                      className="w-full"
-                                      ref={field.ref}
-                                    >
-                                      <SelectValue placeholder={t("select_method")} />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {getAvailableCareMethodsForIndex(
-                                      index
-                                    ).map((option) => (
-                                      <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {t(option.labelKey)}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={createConfigForm.control}
                             name={`payment_method_mappings.${index}.pinelabs_method`}
                             rules={{
                               required: t("pinelabs_method_required"),
@@ -938,6 +882,45 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                         value={mode.value}
                                       >
                                         {t(mode.labelKey)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={createConfigForm.control}
+                            name={`payment_method_mappings.${index}.care_method`}
+                            rules={{
+                              required: t("error_payment_method_required"),
+                            }}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel aria-required>
+                                  {t("care_method")}
+                                </FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  value={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className="w-full"
+                                      ref={field.ref}
+                                    >
+                                      <SelectValue placeholder={t("select_method")} />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getAvailableCareMethodsForIndex().map((option) => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {t(option.labelKey)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
