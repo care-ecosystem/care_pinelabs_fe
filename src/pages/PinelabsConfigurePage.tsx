@@ -177,6 +177,26 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
     name: "payment_method_mappings",
   });
 
+  const allowManualEntryWatched = useWatch({
+    control: createConfigForm.control,
+    name: "meta.allow_manual_entry",
+  });
+  const defaultPaymentFlowWatched = useWatch({
+    control: createConfigForm.control,
+    name: "default_payment_flow",
+  });
+  const manualEntryDisabled =
+    fieldEnabled("allow_manual_entry") && !allowManualEntryWatched;
+
+  useEffect(() => {
+    if (manualEntryDisabled && defaultPaymentFlowWatched === "native") {
+      createConfigForm.setValue("default_payment_flow", "pinelabs", {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [manualEntryDisabled, defaultPaymentFlowWatched, createConfigForm]);
+
   // Field array for POS terminals
   const {
     fields: terminalFields,
@@ -556,6 +576,10 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                                   <SelectItem
                                     key={option.value}
                                     value={option.value}
+                                    disabled={
+                                      option.value === "native" &&
+                                      manualEntryDisabled
+                                    }
                                   >
                                     {t(option.labelKey)}
                                   </SelectItem>
@@ -563,7 +587,9 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                               </SelectContent>
                             </Select>
                             <FormDescription>
-                              {t("choose_pinelabs_or_native")}
+                              {manualEntryDisabled
+                                ? t("pinelabs_flow_requires_manual_entry")
+                                : t("choose_pinelabs_or_native")}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

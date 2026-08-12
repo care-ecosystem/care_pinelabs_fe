@@ -243,6 +243,7 @@
   "payment_flow": "Default Payment flow",
   "select_payment_flow": "Select default payment flow",
   "choose_pinelabs_or_native": "Choose whether payments go through Pinelabs or are recorded natively.",
+  "pinelabs_flow_requires_manual_entry": "Enable manual entry to use the native flow, or the flow defaults to Pinelabs.",
   "payment_flow_pinelabs": "Pinelabs",
   "payment_flow_native": "Native",
   "merchant_id_required": "Merchant ID is required",
