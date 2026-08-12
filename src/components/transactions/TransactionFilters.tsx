@@ -21,6 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { isSameDay } from "date-fns";
 import {
   DateRangeFilter,
@@ -35,10 +43,12 @@ import {
   ListFilterIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
+  SearchIcon,
+  PlusIcon,
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { apis } from "@/apis";
-import { LocationTypeIcons } from "@/types/location";
+import { LocationTypeIcons, LocationRead } from "@/types/location";
 import { UserSelector } from "@/components/transactions/UserSelector";
 import { User } from "@/types/user";
 import { cn } from "@/lib/utils";
@@ -127,6 +137,268 @@ const FilterOptionsList: FC<{
     </div>
   );
 };
+const LocationTreeItem: FC<{
+  facilityId: string;
+  location: LocationRead;
+  depth: number;
+  value: LocationRead | null;
+  expandedIds: Set<string>;
+  emptyParents: Set<string>;
+  onToggleExpand: (id: string) => void;
+  onMarkEmpty: (id: string) => void;
+  onChoose: (location: LocationRead) => void;
+}> = ({
+  facilityId,
+  location,
+  depth,
+  value,
+  expandedIds,
+  emptyParents,
+  onToggleExpand,
+  onMarkEmpty,
+  onChoose,
+}) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  const isExpanded = expandedIds.has(location.id);
+  const isKnownEmpty = emptyParents.has(location.id);
+
+  const canExpand = location.has_children && !isKnownEmpty;
+  const isSelected = value?.id === location.id;
+  const Icon = LocationTypeIcons[location.form];
+
+  const {
+    data: childResponse,
+    isLoading: isChildLoading,
+    error: childError,
+  } = useQuery({
+    queryKey: ["pinelabs_locations_tree", facilityId, location.id],
+    queryFn: () =>
+      apis.locations.list(facilityId, {
+        parent: location.id,
+        mode: "kind",
+        status: "active",
+      }),
+    enabled: isExpanded && canExpand,
+  });
+
+  const children = childResponse?.results || [];
+
+  useEffect(() => {
+    if (isExpanded && canExpand && !isChildLoading && !childError && children.length === 0) {
+      onMarkEmpty(location.id);
+    }
+  }, [isExpanded, canExpand, isChildLoading, childError, children.length, location.id, onMarkEmpty]);
+
+  const indent = 8 + depth * 16;
+
+  const handleActivateRow = () => {
+    if (canExpand) {
+      onToggleExpand(location.id);
+    }
+  };
+
+  return (
+    <>
+      <CommandItem
+        value={location.id}
+        onSelect={handleActivateRow}
+        className={cn(
+          "flex items-center justify-between gap-2 py-1.5 pr-2 cursor-pointer",
+          isSelected && "bg-green-50",
+        )}
+        style={{ paddingLeft: indent }}
+      >
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+          {canExpand ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onToggleExpand(location.id);
+              }}
+              aria-label={t("expand")}
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded hover:bg-gray-200 text-gray-500"
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  isExpanded && "rotate-90",
+                )}
+              />
+            </button>
+          ) : (
+            <span className="h-5 w-5 shrink-0" />
+          )}
+          {Icon && <Icon className="h-4 w-4 text-gray-500 shrink-0" />}
+          <span
+            className={cn(
+              "text-sm truncate",
+              isSelected && "text-primary-600 font-medium",
+            )}
+          >
+            {location.name}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onChoose(location);
+          }}
+          aria-label={t("confirm")}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded border border-gray-300 text-gray-600 hover:bg-gray-100"
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+        </button>
+      </CommandItem>
+
+      {isExpanded && canExpand && (
+        isChildLoading ? (
+          <div
+            className="flex items-center gap-2 py-1.5 text-xs text-gray-500"
+            style={{ paddingLeft: indent + 20 }}
+          >
+            <Loader2Icon className="h-3 w-3 animate-spin" />
+            {t("loading")}
+          </div>
+        ) : childError ? (
+          <div
+            className="text-xs text-gray-500 py-1.5"
+            style={{ paddingLeft: indent + 20 }}
+          >
+            {t("failed_to_load_locations")}
+          </div>
+        ) : (
+          children.map((child) => (
+            <LocationTreeItem
+              key={child.id}
+              facilityId={facilityId}
+              location={child}
+              depth={depth + 1}
+              value={value}
+              expandedIds={expandedIds}
+              emptyParents={emptyParents}
+              onToggleExpand={onToggleExpand}
+              onMarkEmpty={onMarkEmpty}
+              onChoose={onChoose}
+            />
+          ))
+        )
+      )}
+    </>
+  );
+};
+
+const LocationFilterPicker: FC<{
+  facilityId: string;
+  value: LocationRead | null;
+  onSelect: (location: LocationRead | null) => void;
+  onCommit?: () => void;
+}> = ({ facilityId, value, onSelect, onCommit }) => {
+  const { t } = useTranslation(I18NNAMESPACE);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const [emptyParents, setEmptyParents] = useState<Set<string>>(new Set());
+
+  const {
+    data: rootResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: searchQuery
+      ? ["pinelabs_locations_search", facilityId, searchQuery]
+      : ["pinelabs_locations_tree", facilityId, "root"],
+    queryFn: () =>
+      apis.locations.list(facilityId, {
+        parent: searchQuery ? undefined : "",
+        mode: "kind",
+        status: "active",
+        name: searchQuery || undefined,
+      }),
+    enabled: !!facilityId,
+    placeholderData: keepPreviousData,
+  });
+
+  const locations = rootResponse?.results || [];
+
+  const handleChoose = (location: LocationRead) => {
+    onSelect(location);
+    onCommit?.();
+  };
+
+  const handleToggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleMarkEmpty = (id: string) => {
+    setEmptyParents((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  };
+
+  return (
+    <div className="flex flex-col">
+      <Command className="border-0" shouldFilter={false}>
+        <div className="px-3 py-2 border-b">
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <CommandInput
+              placeholder={t("search_locations")}
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              className="pl-9 h-9 border-0 focus:ring-0"
+            />
+          </div>
+        </div>
+
+        <CommandList className="max-h-[30vh]">
+          <CommandEmpty>
+            {isLoading ? (
+              <div className="flex items-center justify-center gap-2 py-4">
+                <Loader2Icon className="size-4 animate-spin" />
+                <p className="text-sm text-gray-600">{t("loading")}</p>
+              </div>
+            ) : error ? (
+              <div className="text-sm text-gray-500 text-center py-4">
+                {t("failed_to_load_locations")}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-4">
+                {searchQuery ? t("no_location_found") : t("no_locations_found")}
+              </div>
+            )}
+          </CommandEmpty>
+
+          <CommandGroup>
+            {locations.map((location) => (
+              <LocationTreeItem
+                key={location.id}
+                facilityId={facilityId}
+                location={location}
+                depth={0}
+                value={value}
+                expandedIds={expandedIds}
+                emptyParents={emptyParents}
+                onToggleExpand={handleToggleExpand}
+                onMarkEmpty={handleMarkEmpty}
+                onChoose={handleChoose}
+              />
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </div>
+  );
+};
 
 type TransactionFiltersProps = {
   facilityId: string;
@@ -178,12 +450,12 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     setOpenChip(null);
   };
 
-  const { data: locationsResponse, isLoading: isLocationsLoading } = useQuery({
+  const { data: locationsResponse } = useQuery({
     queryKey: ["pinelabs_locations", facilityId],
     queryFn: () =>
       apis.locations.list(facilityId, {
         status: "active",
-        mine: true,
+        mode: "kind",
       }),
     enabled: !!facilityId,
   });
@@ -371,12 +643,6 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
     },
   ];
 
-  const LOCATION_OPTIONS: FilterOption[] = locations.map((location) => ({
-    value: location.id,
-    label: location.name,
-    icon: LocationTypeIcons[location.form],
-  }));
-
   const TERMINAL_OPTIONS: FilterOption[] = terminals.map((terminal) => ({
     value: terminal.id,
     label: terminal.device.registered_name,
@@ -411,11 +677,13 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
         );
       case "location":
         return (
-          <FilterOptionsList
-            options={LOCATION_OPTIONS}
-            selectedValue={filters.location || ""}
-            onSelect={(value) => onFiltersChange({ ...filters, location: value })}
-            isLoadingOptions={isLocationsLoading}
+          <LocationFilterPicker
+            facilityId={facilityId}
+            value={selectedLocation ?? null}
+            onSelect={(location) =>
+              onFiltersChange({ ...filters, location: location?.id || "" })
+            }
+            onCommit={closeFilterPopovers}
           />
         );
       case "terminal":

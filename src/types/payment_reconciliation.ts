@@ -42,9 +42,7 @@ export enum PaymentReconciliationStatus {
 }
 
 export enum PaymentReconciliationPaymentMethod {
-  // cash = "cash",
   ccca = "ccca",
-  cchk = "cchk",
   cdac = "cdac",
   chck = "chck",
   ddpo = "ddpo",

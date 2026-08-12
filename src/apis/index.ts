@@ -6,10 +6,6 @@ import {
   TransactionStatusRequest,
   UploadTransactionRequest,
 } from "@/types/gateway";
-import {
-  CreatePinelabsTerminalBody,
-  PinelabsTerminal,
-} from "@/types/pinelabs_terminal";
 import { LocationRead } from "@/types/location";
 import { PaymentReconciliation } from "@/types/payment_reconciliation";
 import { User } from "@/types/user";
@@ -89,44 +85,6 @@ export const apis = {
     retrieve: (facilityId: string, accountId: string) => {
       return request<Account>(
         `/api/v1/facility/${facilityId}/account/${accountId}/`,
-      );
-    },
-  },
-  pinelabs_terminals: {
-    list: async (facilityId: string) => {
-      return await request<PaginatedResponse<PinelabsTerminal>>(
-        `/api/care_pinelabs/pinelabs_terminal/?facility=${facilityId}`,
-      );
-    },
-    get: async (id: string) => {
-      return await request<PinelabsTerminal>(
-        `/api/care_pinelabs/pinelabs_terminal/${id}/`,
-      );
-    },
-    create: async (data: CreatePinelabsTerminalBody) => {
-      return await request<PinelabsTerminal>(
-        "/api/care_pinelabs/pinelabs_terminal/",
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        },
-      );
-    },
-    update: async (id: string, data: Partial<CreatePinelabsTerminalBody>) => {
-      return await request<PinelabsTerminal>(
-        `/api/care_pinelabs/pinelabs_terminal/${id}/`,
-        {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        },
-      );
-    },
-    delete: async (id: string) => {
-      return await request<void>(
-        `/api/care_pinelabs/pinelabs_terminal/${id}/`,
-        {
-          method: "DELETE",
-        },
       );
     },
   },

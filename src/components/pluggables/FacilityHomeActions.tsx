@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/command";
 import { FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { I18NNAMESPACE } from "@/lib/constants";
+import { I18NNAMESPACE, PLUGIN_SLUG } from "@/lib/constants";
 import {
   Form,
   FormControl,
@@ -84,6 +84,7 @@ import {
   CreatePinelabsConfigBody,
 } from "@/types/pinelabs_config";
 import { Device } from "@/types/device";
+import { PlugConfigMeta } from "@/types/plugin";
 
 // Get payment method options from existing enum
 const CARE_METHOD_OPTIONS = getPaymentMethodOptions();
@@ -93,6 +94,18 @@ const PAYMENT_FLOW_OPTIONS = [
   { value: "pinelabs", labelKey: "payment_flow_pinelabs" },
   { value: "native", labelKey: "payment_flow_native" },
 ];
+
+function getPluginConfig(): PlugConfigMeta | null {
+  try {
+    if (!window.__CARE_PLUGIN_RUNTIME__?.meta?.[PLUGIN_SLUG]) {
+      return null;
+    }
+    return window.__CARE_PLUGIN_RUNTIME__.meta[PLUGIN_SLUG] as PlugConfigMeta;
+  } catch (error) {
+    console.warn("Error accessing plugin runtime config:", error);
+    return null;
+  }
+}
 
 const SEARCH_DEBOUNCE_INTERVAL = 500;
 const DEVICE_SEARCH_PAGE_SIZE = 10;
@@ -122,8 +135,18 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
   const [deviceInfoCache, setDeviceInfoCache] = useState<
     Record<string, Pick<Device, "id" | "registered_name">>
   >({});
+  const [pluginConfig, setPluginConfig] = useState<PlugConfigMeta | null>(
+    null,
+  );
 
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    setPluginConfig(getPluginConfig());
+  }, []);
+
+  const fieldEnabled = (fieldKey: string): boolean =>
+    pluginConfig?.config?.[fieldKey] === true;
 
   // Form for creating/editing config
   const createConfigForm = useForm<CreatePinelabsConfigBody>({
@@ -131,9 +154,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       facility_id: facility?.id || "",
       default_payment_flow: "pinelabs" as const,
       allow_advance_payment: true,
-      allow_partial_payment: false,
+      allow_partial_payment: true,
       pinelabs_merchant_id: "",
       pinelabs_security_token: "",
+      meta: {
+        allow_manual_entry: true,
+      },
       payment_method_mappings: [
         {
           care_method: PaymentReconciliationPaymentMethod.debc,
@@ -375,9 +401,12 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     if (editingConfig && config) {
       const updateData: UpdatePinelabsConfigBody = {
         default_payment_flow: data.default_payment_flow,
-        allow_advance_payment: data.allow_advance_payment,
-        allow_partial_payment: data.allow_partial_payment,
+        allow_advance_payment: data.allow_advance_payment ?? true,
+        allow_partial_payment: data.allow_partial_payment ?? true,
         pinelabs_merchant_id: data.pinelabs_merchant_id,
+        meta: {
+          allow_manual_entry: data.meta?.allow_manual_entry ?? true,
+        },
         ...(data.pinelabs_security_token && {
           pinelabs_security_token: data.pinelabs_security_token,
         }),
@@ -389,6 +418,11 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       createConfigMutation.mutate({
         ...data,
         facility_id: facility?.id || "",
+        allow_advance_payment: data.allow_advance_payment ?? true,
+        allow_partial_payment: data.allow_partial_payment ?? true,
+        meta: {
+          allow_manual_entry: data.meta?.allow_manual_entry ?? true,
+        },
       });
     }
   };
@@ -398,10 +432,13 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
       createConfigForm.reset({
         facility_id: config.facility_id,
         default_payment_flow: config.default_payment_flow as any,
-        allow_advance_payment: config.allow_advance_payment,
-        allow_partial_payment: config.allow_partial_payment,
+        allow_advance_payment: config.allow_advance_payment ?? true,
+        allow_partial_payment: config.allow_partial_payment ?? true,
         pinelabs_merchant_id: config.pinelabs_merchant_id,
         pinelabs_security_token: "",
+        meta: {
+          allow_manual_entry: config.meta?.allow_manual_entry ?? true,
+        },
         payment_method_mappings: config.payment_method_mappings.map((m) => ({
           care_method: m.care_method,
           pinelabs_method: m.pinelabs_method,
@@ -434,26 +471,34 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
     setTerminalsBaseline([]);
   };
 
-  const getAvailableCareMethodsForIndex = (currentIndex: number) => {
-    const selectedMethods = paymentMethodMappings
-      ?.map((mapping, index) => {
-        if (index === currentIndex) return null;
-        return mapping.care_method;
-      })
-      .filter(Boolean) as string[];
-
-    return CARE_METHOD_OPTIONS.filter(
-      (option) => !selectedMethods?.includes(option.value)
-    );
+  const getAvailableCareMethodsForIndex = () => {
+    return CARE_METHOD_OPTIONS;
   };
 
   const getFirstAvailableCareMethod = () => {
-    const selectedMethods = (paymentMethodMappings ?? [])
-      .map((mapping) => mapping.care_method)
+    return CARE_METHOD_OPTIONS[0];
+  };
+
+  const getAvailablePinelabsModesForIndex = (currentIndex: number) => {
+    const selectedModes = paymentMethodMappings
+      ?.map((mapping, index) => {
+        if (index === currentIndex) return null;
+        return mapping.pinelabs_method;
+      })
       .filter(Boolean) as string[];
 
-    return CARE_METHOD_OPTIONS.find(
-      (option) => !selectedMethods.includes(option.value)
+    return PINELABS_PAYMENT_MODES.filter(
+      (mode) => !selectedModes?.includes(mode.value)
+    );
+  };
+
+  const getFirstAvailablePinelabsMode = () => {
+    const selectedModes = (paymentMethodMappings ?? [])
+      .map((mapping) => mapping.pinelabs_method)
+      .filter(Boolean) as string[];
+
+    return PINELABS_PAYMENT_MODES.find(
+      (mode) => !selectedModes.includes(mode.value)
     );
   };
 
@@ -522,8 +567,8 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
           <>
             {isConfigLoading || config ? (
               <div className="flex items-center justify-center gap-2 py-12">
-                <Loader2Icon className="size-5 animate-spin text-blue-600" />
-                <p className="text-sm text-gray-600">
+                <Loader2Icon className="size-5 animate-spin text-black" />
+                <p className="text-sm text-black">
                   {t("loading_configuration")}
                 </p>
               </div>
@@ -683,47 +728,75 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                 </div>
 
                 {/* Payment Features */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium">{t("payment_features")}</h3>
+                {(fieldEnabled("allow_advance_payment") ||
+                  fieldEnabled("allow_partial_payment") ||
+                  fieldEnabled("allow_manual_entry")) && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">{t("payment_features")}</h3>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField
-                      control={createConfigForm.control}
-                      name="allow_advance_payment"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
-                          <div className="space-y-0.5">
-                            <FormLabel>{t("advance_payment")}</FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      {fieldEnabled("allow_advance_payment") && (
+                        <FormField
+                          control={createConfigForm.control}
+                          name="allow_advance_payment"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
+                              <div className="space-y-0.5">
+                                <FormLabel>{t("advance_payment")}</FormLabel>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
 
-                    <FormField
-                      control={createConfigForm.control}
-                      name="allow_partial_payment"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
-                          <div className="space-y-0.5">
-                            <FormLabel>{t("partial_payment")}</FormLabel>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
+                      {fieldEnabled("allow_partial_payment") && (
+                        <FormField
+                          control={createConfigForm.control}
+                          name="allow_partial_payment"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
+                              <div className="space-y-0.5">
+                                <FormLabel>{t("partial_payment")}</FormLabel>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       )}
-                    />
+
+                      {fieldEnabled("allow_manual_entry") && (
+                        <FormField
+                          control={createConfigForm.control}
+                          name="meta.allow_manual_entry"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-md border p-2">
+                              <div className="space-y-0.5">
+                                <FormLabel>{t("manual_entry")}</FormLabel>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* POS Terminals */}
                 <div className="space-y-4">
@@ -779,47 +852,6 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <FormField
                             control={createConfigForm.control}
-                            name={`payment_method_mappings.${index}.care_method`}
-                            rules={{
-                              required: t("error_payment_method_required"),
-                            }}
-                            render={({ field }) => (
-                              <FormItem className="flex flex-col">
-                                <FormLabel aria-required>
-                                  {t("care_method")}
-                                </FormLabel>
-                                <Select
-                                  onValueChange={field.onChange}
-                                  value={field.value}
-                                >
-                                  <FormControl>
-                                    <SelectTrigger
-                                      className="w-full"
-                                      ref={field.ref}
-                                    >
-                                      <SelectValue placeholder={t("select_method")} />
-                                    </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                    {getAvailableCareMethodsForIndex(
-                                      index
-                                    ).map((option) => (
-                                      <SelectItem
-                                        key={option.value}
-                                        value={option.value}
-                                      >
-                                        {t(option.labelKey)}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-
-                          <FormField
-                            control={createConfigForm.control}
                             name={`payment_method_mappings.${index}.pinelabs_method`}
                             rules={{
                               required: t("pinelabs_method_required"),
@@ -842,12 +874,53 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                                     </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                    {PINELABS_PAYMENT_MODES.map((mode) => (
+                                    {getAvailablePinelabsModesForIndex(
+                                      index
+                                    ).map((mode) => (
                                       <SelectItem
                                         key={mode.value}
                                         value={mode.value}
                                       >
                                         {t(mode.labelKey)}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={createConfigForm.control}
+                            name={`payment_method_mappings.${index}.care_method`}
+                            rules={{
+                              required: t("error_payment_method_required"),
+                            }}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-col">
+                                <FormLabel aria-required>
+                                  {t("care_method")}
+                                </FormLabel>
+                                <Select
+                                  onValueChange={field.onChange}
+                                  value={field.value}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className="w-full"
+                                      ref={field.ref}
+                                    >
+                                      <SelectValue placeholder={t("select_method")} />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getAvailableCareMethodsForIndex().map((option) => (
+                                      <SelectItem
+                                        key={option.value}
+                                        value={option.value}
+                                      >
+                                        {t(option.labelKey)}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -892,13 +965,17 @@ const FacilityHomeActions: FC<FacilityHomeActionsProps> = ({ facility }) => {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={!getFirstAvailableCareMethod()}
+                      disabled={
+                        !getFirstAvailableCareMethod() ||
+                        !getFirstAvailablePinelabsMode()
+                      }
                       onClick={() => {
                         const nextCareMethod = getFirstAvailableCareMethod();
-                        if (!nextCareMethod) return;
+                        const nextPinelabsMode = getFirstAvailablePinelabsMode();
+                        if (!nextCareMethod || !nextPinelabsMode) return;
                         append({
                           care_method: nextCareMethod.value,
-                          pinelabs_method: PinelabsPaymentModeEnum.UPI_BHARAT_QR,
+                          pinelabs_method: nextPinelabsMode.value,
                           is_default: false,
                         });
                       }}

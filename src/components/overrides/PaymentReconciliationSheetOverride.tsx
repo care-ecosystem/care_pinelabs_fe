@@ -40,7 +40,8 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       enabled: !!props.facilityId && props.open,
     });
 
-  const allowAdvancePayment = pinelabsConfig?.allow_advance_payment ?? false;
+  const allowAdvancePayment = pinelabsConfig?.allow_advance_payment;
+  const allowManualEntry = pinelabsConfig?.meta?.allow_manual_entry;
   const isPinelabsFlow = pinelabsConfig?.default_payment_flow === "pinelabs";
 
   const [urlMode, setUrlMode] = useState<string | null>(null);
@@ -163,9 +164,13 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
             account={undefined}
             autoOpen={true}
             isCreditNote={props.isCreditNote}
-            onSwitchToManual={() => {
-              setUrlParam("mode", "manual");
-            }}
+            onSwitchToManual={
+              allowManualEntry
+                ? () => {
+                    setUrlParam("mode", "manual");
+                  }
+                : undefined
+            }
             onClose={() => {
               props.onOpenChange(false);
               removeUrlParam();
@@ -215,9 +220,13 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
             account={props.account ?? props.accountId}
             autoOpen={true}
             isCreditNote={props.isCreditNote}
-            onSwitchToManual={() => {
-              setUrlParam("mode", "manual");
-            }}
+            onSwitchToManual={
+              allowManualEntry
+                ? () => {
+                    setUrlParam("mode", "manual");
+                  }
+                : undefined
+            }
             onClose={() => {
               props.onOpenChange(false);
               removeUrlParam();

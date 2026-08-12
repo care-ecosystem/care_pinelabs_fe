@@ -5,6 +5,7 @@ import {
   Car,
   Eye,
   Home,
+  Hospital,
   LucideIcon,
   Map,
 } from "lucide-react";
@@ -36,7 +37,7 @@ export interface LocationRead {
 
 export const LocationTypeIcons = {
   bd: Bed,
-  wa: Home,
+  wa: Hospital,
   lvl: Building2,
   bu: Building,
   si: Map,
