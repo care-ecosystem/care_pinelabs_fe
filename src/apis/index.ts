@@ -22,8 +22,14 @@ import {
 } from "@/types/pinelabs_config";
 import { Device, DeviceListParams } from "@/types/device";
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants";
+import { Facility } from "@/types/facility";
 
 export const apis = {
+  facilities: {
+    retrieve: async (facilityId: string) => {
+      return await request<Facility>(`/api/v1/facility/${facilityId}/`);
+    },
+  },
   invoices: {
     retrieve: async (facilityId: string, invoiceId: string) => {
       return await request<Invoice>(

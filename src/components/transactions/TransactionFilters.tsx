@@ -313,7 +313,6 @@ const LocationFilterPicker: FC<{
       : ["pinelabs_locations_tree", facilityId, "root"],
     queryFn: () =>
       apis.locations.list(facilityId, {
-        parent: searchQuery ? undefined : "",
         mode: "kind",
         status: "active",
         name: searchQuery || undefined,

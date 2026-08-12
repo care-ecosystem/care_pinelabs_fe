@@ -231,7 +231,7 @@
 
   "configure_pinelabs": "Configure Pinelabs",
   "pinelabs_configuration": "Pinelabs Configuration",
-  "edit_configuration": "Edit Configuration",
+  "edit_configuration": "Update Configuration",
   "create_configuration": "Create Configuration",
   "pos_terminals": "POS Terminals",
   "manage_pinelabs_config_for": "Manage the Pinelabs configuration for",
@@ -271,9 +271,6 @@
   "pinelabs_method": "Pinelabs Method",
   "set_as_default": "Set as Default",
   "add_method": "Add Method",
-  "update_configuration": "Update Configuration",
-  "updating": "Updating...",
-  "creating": "Creating...",
   "add_terminal": "Add Terminal",
   "search_and_select_device": "Search and select a device",
   "search_devices_by_name": "Search devices by name...",

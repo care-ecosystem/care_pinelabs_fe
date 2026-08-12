@@ -2,6 +2,9 @@ import { lazy } from "react";
 
 const TransactionsPage = lazy(() => import("./pages/TransactionsPage"));
 const PineLabsPaymentPage = lazy(() => import("./pages/PineLabsPaymentPage"));
+const PinelabsConfigurePage = lazy(
+  () => import("./pages/PinelabsConfigurePage")
+);
 
 const routes = {
   "/facility/:facilityId/billing/pinelabs/transactions": ({
@@ -16,6 +19,11 @@ const routes = {
     facilityId: string;
     invoiceId: string;
   }) => <PineLabsPaymentPage facilityId={facilityId} invoiceId={invoiceId} />,
+  "/facility/:facilityId/settings/general/pinelabs": ({
+    facilityId,
+  }: {
+    facilityId: string;
+  }) => <PinelabsConfigurePage facilityId={facilityId} />,
 };
 
 export default routes;
