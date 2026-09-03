@@ -3,6 +3,7 @@ import { navigate } from "raviger";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE } from "@/lib/constants";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
+import { redirectToAppointmentPrint } from "@/lib/paymentRedirect";
 import { useQuery } from "@tanstack/react-query";
 import { apis } from "@/apis";
 import { Loader2Icon, ChevronLeft } from "lucide-react";
@@ -40,7 +41,8 @@ const PineLabsPaymentPage: FC<PineLabsPaymentPageProps> = ({
     navigate(`/facility/${facilityId}/billing/invoices/${invoiceId}`);
   };
 
-  const handlePaymentSheetClose = () => {
+  const handlePaymentSheetClose = (paidSuccessfully?: boolean) => {
+    if (paidSuccessfully && redirectToAppointmentPrint()) return;
     handleBackToInvoice();
   };
 

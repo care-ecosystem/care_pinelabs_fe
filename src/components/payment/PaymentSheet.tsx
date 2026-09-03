@@ -63,7 +63,7 @@ export type PaymentSheetProps = {
   account?: Account | string;
   autoOpen?: boolean;
   isCreditNote?: boolean;
-  onClose?: () => void;
+  onClose?: (paidSuccessfully?: boolean) => void;
   onSwitchToManual?: () => void;
 };
 
@@ -366,9 +366,11 @@ export const PaymentSheet: FC<PaymentSheetProps> = ({
   };
 
   const handleCloseAfterTerminal = () => {
+    const paidSuccessfully =
+      showSuccess || livePr?.status === PaymentReconciliationStatus.partial;
     setIsOpen(false);
     resetSheetState();
-    onClose?.();
+    onClose?.(paidSuccessfully);
   };
 
   const handleOpenChange = (open: boolean) => {
