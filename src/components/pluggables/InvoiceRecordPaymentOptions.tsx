@@ -26,7 +26,7 @@ const InvoiceRecordPaymentOptions: FC<InvoiceRecordPaymentOptionsProps> = ({
   const handlePineLabsPayment = () => {
     // Navigate to dedicated Pine Labs payment page
     navigate(
-      `/pinelabs/facility/${facilityId}/billing/invoices/${invoice.id}`
+      `/pinelabs/facility/${facilityId}/billing/invoices/${invoice.id}${window.location.search}`
     );
   };
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { PaymentSheet } from "@/components/payment/PaymentSheet";
+import { redirectToAppointmentPrint } from "@/lib/paymentRedirect";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { SwitchToPinelabsButton } from "@/components/overrides/SwitchToPinelabsButton";
 import { Invoice } from "@/types/invoice";
@@ -171,7 +172,8 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
                   }
                 : undefined
             }
-            onClose={() => {
+            onClose={(paidSuccessfully) => {
+              if (paidSuccessfully && redirectToAppointmentPrint()) return;
               props.onOpenChange(false);
               removeUrlParam();
             }}
