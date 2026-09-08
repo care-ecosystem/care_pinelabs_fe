@@ -3,6 +3,7 @@ import { PaymentSheet } from "@/components/payment/PaymentSheet";
 import { redirectToAppointmentPrint } from "@/lib/paymentRedirect";
 import { PineLabsAccountPayment } from "@/components/payment/PineLabsAccountPayment";
 import { SwitchToPinelabsButton } from "@/components/overrides/SwitchToPinelabsButton";
+import { ManualPaymentSheet } from "@/components/overrides/ManualPaymentSheet";
 import { Invoice } from "@/types/invoice";
 import { Account } from "@/types/account";
 import { useQuery } from "@tanstack/react-query";
@@ -19,11 +20,24 @@ export interface PaymentReconciliationSheetOverrideProps {
   __base?: React.ComponentType<PaymentReconciliationSheetOverrideProps>;
 }
 
+/** Which flow this plugin is showing: `pinelabs` or `manual`. */
+const MODE_PARAM = "mode";
+/**
+ * Slug of the plugin we have handed off to. Kept separate from `mode` because
+ * a plugin built from this same template reads `mode` itself — handing off with
+ * `mode=manual` still set would make it render its own `__base` (native manual
+ * entry) immediately instead of its own payment page.
+ */
+const CHAIN_PARAM = "pl_chain";
+
 const cleanupUrlParams = () => {
   try {
     const url = new URL(window.location.href);
-    if (url.searchParams.has("mode")) {
-      url.searchParams.delete("mode");
+    const stale = [MODE_PARAM, CHAIN_PARAM].filter((param) =>
+      url.searchParams.has(param)
+    );
+    if (stale.length) {
+      stale.forEach((param) => url.searchParams.delete(param));
       window.history.replaceState({}, "", url.toString());
       return true;
     }
@@ -100,6 +114,15 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
       setUrlMode(null);
     };
 
+    const handleManualOpenChange = (open: boolean) => {
+      if (!open) {
+        removeUrlParam();
+        props.onOpenChange(false);
+      } else {
+        props.onOpenChange(open);
+      }
+    };
+
     const canSwitchToPinelabs = props.isCreditNote
       ? false
       : props.invoice
@@ -108,21 +131,13 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
           !!pinelabsConfig &&
           allowAdvancePayment;
 
-    if (urlMode === "manual" && props.__base) {
-      const NativeComponent = props.__base;
-
+    if (urlMode === "manual") {
       return (
         <>
-          <NativeComponent
+          <ManualPaymentSheet
             {...props}
-            onOpenChange={(open: boolean) => {
-              if (!open) {
-                removeUrlParam();
-                props.onOpenChange(false);
-              } else {
-                props.onOpenChange(open);
-              }
-            }}
+            self={PaymentReconciliationSheetOverride}
+            onOpenChange={handleManualOpenChange}
           />
           {canSwitchToPinelabs && (
             <SwitchToPinelabsButton
@@ -181,34 +196,25 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
         );
       }
 
-      if (props.__base) {
-        if (!urlMode && isInitialized) {
-          setUrlParam("mode", "manual");
-        }
-
-        const NativeComponent = props.__base;
-        return (
-          <>
-            <NativeComponent
-              {...props}
-              onOpenChange={(open: boolean) => {
-                if (!open) {
-                  removeUrlParam();
-                  props.onOpenChange(false);
-                } else {
-                  props.onOpenChange(open);
-                }
-              }}
-            />
-            {canSwitchToPinelabs && (
-              <SwitchToPinelabsButton
-                matchText={props.invoice.number}
-                onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
-              />
-            )}
-          </>
-        );
+      if (!urlMode && isInitialized) {
+        setUrlParam("mode", "manual");
       }
+
+      return (
+        <>
+          <ManualPaymentSheet
+            {...props}
+            self={PaymentReconciliationSheetOverride}
+            onOpenChange={handleManualOpenChange}
+          />
+          {canSwitchToPinelabs && (
+            <SwitchToPinelabsButton
+              matchText={props.invoice.number}
+              onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
+            />
+          )}
+        </>
+      );
     }
 
     if (props.account || props.accountId) {
@@ -237,33 +243,24 @@ const PaymentReconciliationSheetOverride = (props: PaymentReconciliationSheetOve
         );
       }
 
-      if (props.__base) {
-        if (!urlMode && isInitialized) {
-          setUrlParam("mode", "manual");
-        }
-
-        const NativeComponent = props.__base;
-        return (
-          <>
-            <NativeComponent
-              {...props}
-              onOpenChange={(open: boolean) => {
-                if (!open) {
-                  removeUrlParam();
-                  props.onOpenChange(false);
-                } else {
-                  props.onOpenChange(open);
-                }
-              }}
-            />
-            {canSwitchToPinelabs && (
-              <SwitchToPinelabsButton
-                onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
-              />
-            )}
-          </>
-        );
+      if (!urlMode && isInitialized) {
+        setUrlParam("mode", "manual");
       }
+
+      return (
+        <>
+          <ManualPaymentSheet
+            {...props}
+            self={PaymentReconciliationSheetOverride}
+            onOpenChange={handleManualOpenChange}
+          />
+          {canSwitchToPinelabs && (
+            <SwitchToPinelabsButton
+              onSwitchToPinelabs={() => setUrlParam("mode", "pinelabs")}
+            />
+          )}
+        </>
+      );
     }
 
     return null;
