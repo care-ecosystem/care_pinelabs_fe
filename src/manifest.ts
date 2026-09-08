@@ -1,3 +1,4 @@
+import "@/lib/overrideBridgeSpy";
 import { lazy } from "react";
 import PaymentReconciliationSheetOverride from "@/components/overrides/PaymentReconciliationSheetOverride";
 import routes from "./routes";
