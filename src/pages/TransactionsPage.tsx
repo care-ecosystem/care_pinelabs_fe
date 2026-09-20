@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import dayjs from "@/lib/dayjs";
 import { useTranslation } from "react-i18next";
 import { useQueryParams } from "raviger";
@@ -11,8 +11,7 @@ import { TransactionSort } from "@/components/transactions/TransactionSort";
 import { TransactionDetailsSheet } from "@/components/transactions/TransactionDetailsSheet";
 import { TransactionFilters as Filters } from "@/types/transaction_filters";
 import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
-import { PINELABS_PAYMENT_MODES } from "@/lib/paymentMethods";
-// import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 
 type TransactionsPageProps = {
   facilityId: string;
@@ -33,6 +32,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     string | null
   >(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [transactionCount, setTransactionCount] = useState<number | null>(null);
 
   // Derived default (URL > current user) - never written to the URL itself,
   // so there's no mount-effect race. "none" marks an explicit clear.
@@ -47,8 +47,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     createdByCleared || !!qParams.created_by || currentUserFetched;
 
   const filters: Filters = {
-    method:
-      (qParams.method as Filters["method"]) || PINELABS_PAYMENT_MODES[0].value,
+    method: (qParams.method as Filters["method"]) || "",
     status: (qParams.status as PaymentReconciliationStatus) || "",
     location: qParams.location || "",
     terminal: qParams.terminal || "",
@@ -116,6 +115,11 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     });
   };
 
+  // Stable identity so the table's count effect doesn't re-run on every render.
+  const handleCountChange = useCallback((count: number) => {
+    setTransactionCount(count);
+  }, []);
+
   const handleRowClick = (transactionId: string) => {
     setSelectedTransactionId(transactionId);
     setDetailsOpen(true);
@@ -130,6 +134,14 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
               <h1 className="text-2xl font-bold text-gray-700 mb-2">
                 {t("pinelabs_transactions")}
               </h1>
+              {transactionCount !== null && (
+                <Badge
+                  variant="secondary"
+                  className="mb-2 px-3 py-0.5 text-xl font-bold text-gray-700"
+                >
+                  {transactionCount}
+                </Badge>
+              )}
             </div>
             <p className="text-gray-600 text-sm">
               {t("pinelabs_transactions_description")}
@@ -160,6 +172,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
             enabled={filtersReady}
             onPageChange={handlePageChange}
             onRowClick={handleRowClick}
+            onCountChange={handleCountChange}
           />
         </div>
       </div>

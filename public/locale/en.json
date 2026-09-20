@@ -132,6 +132,7 @@
   "view_invoice": "View Invoice",
   "search_invoice": "Search by invoice number",
   "status": "Status",
+  "all": "All",
   "all_statuses": "All Statuses",
   "all_methods": "All Methods",
   "all_locations": "All Locations",

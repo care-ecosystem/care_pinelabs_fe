@@ -405,6 +405,8 @@ type TransactionFiltersProps = {
   onFiltersChange: (filters: Filters) => void;
 };
 
+const ALL_METHODS_VALUE = "all";
+
 const STATUS_LABEL_KEYS: Record<string, string> = {
   [PaymentReconciliationStatus.in_progress]: "status_in_progress",
   [PaymentReconciliationStatus.completed]: "status_completed",
@@ -704,15 +706,13 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
       {/* Payment method - mandatory, kept outside the clubbed popover */}
       <div className="w-full sm:w-64">
         <Select
-          value={
-            filters.method ||
-            configuredPaymentModes[0]?.value ||
-            PINELABS_PAYMENT_MODES[0].value
-          }
+          value={filters.method || ALL_METHODS_VALUE}
           onValueChange={(value) => {
             onFiltersChange({
               ...filters,
-              method: value as Filters["method"],
+              method: (value === ALL_METHODS_VALUE
+                ? ""
+                : value) as Filters["method"],
             });
           }}
         >
@@ -723,6 +723,7 @@ export const TransactionFilters: FC<TransactionFiltersProps> = ({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={ALL_METHODS_VALUE}>{t("all")}</SelectItem>
             {configuredPaymentModes.map((mode) => (
               <SelectItem key={mode.value} value={mode.value}>
                 {t(mode.labelKey)}
