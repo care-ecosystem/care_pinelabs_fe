@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import {
   Table,
   TableBody,
@@ -22,12 +23,7 @@ import { PaymentReconciliationStatus } from "@/types/payment_reconciliation";
 import { formatCurrency } from "@/lib/utils";
 import { getTransactionPaymentMethodLabelKey } from "@/lib/paymentMethods";
 import dayjs from "@/lib/dayjs";
-import {
-  CreditCardIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ExternalLinkIcon,
-} from "lucide-react";
+import { CreditCardIcon, ExternalLinkIcon } from "lucide-react";
 
 type TransactionsTableProps = {
   facilityId: string;
@@ -84,7 +80,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   const { data, isLoading, error } = usePaymentReconciliations(
     facilityId,
     filters,
-    { offset: page * limit, limit },
+    { offset: (page - 1) * limit, limit },
     ordering,
     enabled,
   );
@@ -129,8 +125,7 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
   }
 
   const transactions = data?.results || [];
-  const hasNext = (data?.count ?? 0) > (page + 1) * limit;
-  const hasPrevious = page > 0;
+  const totalCount = data?.count ?? 0;
 
   return (
     <div>
@@ -228,38 +223,18 @@ export const TransactionsTable: FC<TransactionsTableProps> = ({
         </Table>
       )}
 
-      {/* Pagination */}
+      {/* Pagination - matches care_fe's native payments listing */}
       {transactions.length > 0 && (
-        <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-gray-700">
-            {t("showing_results", {
-              from: page * limit + 1,
-              to: Math.min((page + 1) * limit, data?.count || 0),
-              total: data?.count || 0,
-            })}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page - 1)}
-              disabled={!hasPrevious}
-            >
-              <ChevronLeftIcon className="h-4 w-4" />
-              {t("previous")}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(page + 1)}
-              disabled={!hasNext}
-            >
-              {t("next")}
-              <ChevronRightIcon className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="flex w-full justify-center mt-4">
+          <Pagination
+            totalCount={totalCount}
+            currentPage={page}
+            perPage={limit}
+            onChange={onPageChange}
+          />
         </div>
       )}
+
     </div>
   );
 };
