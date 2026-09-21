@@ -60,7 +60,8 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     dateFrom: parseDateOnlyParam(qParams.created_date_after),
     dateTo: parseDateOnlyParam(qParams.created_date_before),
   };
-  const page = Number(qParams.page) || 0;
+  // 1-indexed, matching care_fe's native payments listing.
+  const page = Number(qParams.page) || 1;
   const ordering = qParams.ordering || DEFAULT_ORDERING;
 
   // Fixed key order keeps the URL shape consistent across updates.
@@ -98,7 +99,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   }, []);
 
   const handleFiltersChange = (newFilters: Filters) => {
-    setQueryParams(buildQueryParams(newFilters, 0, ordering), {
+    setQueryParams(buildQueryParams(newFilters, 1, ordering), {
       overwrite: true,
     });
   };
@@ -110,7 +111,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   };
 
   const handleOrderingChange = (newOrdering: string) => {
-    setQueryParams(buildQueryParams(filters, 0, newOrdering), {
+    setQueryParams(buildQueryParams(filters, 1, newOrdering), {
       overwrite: true,
     });
   };
