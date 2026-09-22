@@ -46,9 +46,14 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
   const filtersReady =
     createdByCleared || !!qParams.created_by || currentUserFetched;
 
+  const statusCleared = qParams.status === "none";
+
   const filters: Filters = {
     method: (qParams.method as Filters["method"]) || "",
-    status: (qParams.status as PaymentReconciliationStatus) || "",
+    status: statusCleared
+      ? ""
+      : (qParams.status as PaymentReconciliationStatus) ||
+        PaymentReconciliationStatus.completed,
     location: qParams.location || "",
     terminal: qParams.terminal || "",
     createdBy: createdByCleared
@@ -69,7 +74,7 @@ const TransactionsPage: FC<TransactionsPageProps> = ({ facilityId }) => {
     const filterEntries = Object.fromEntries(
       Object.entries({
         method: f.method || "",
-        status: f.status || "",
+        status: f.status || "none",
         location: f.location || "",
         terminal: f.terminal || "",
         created_by: f.createdBy || (createdByCleared ? "none" : ""),
