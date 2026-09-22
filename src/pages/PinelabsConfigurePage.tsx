@@ -7,7 +7,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { FC, useEffect, useMemo, useState } from "react";
+import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { I18NNAMESPACE, PLUGIN_SLUG } from "@/lib/constants";
 import {
@@ -103,6 +103,12 @@ function getPluginConfig(): PlugConfigMeta | null {
 
 const SEARCH_DEBOUNCE_INTERVAL = 500;
 
+const RequiredMark = () => (
+  <span aria-hidden="true" className="text-red-500">
+    *
+  </span>
+);
+
 const MONOSPACE_FONT_STACK =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
@@ -121,7 +127,8 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
   const [terminalDeviceSearch, setTerminalDeviceSearch] = useState("");
   const [terminalPickerOpen, setTerminalPickerOpen] = useState(false);
   const [showSecurityToken, setShowSecurityToken] = useState(false);
-  const [terminalsBaseline, setTerminalsBaseline] = useState<string[]>([]);
+  const [savedTerminalIds, setSavedTerminalIds] = useState<string[]>([]);
+  const [draftTerminalIds, setDraftTerminalIds] = useState<string[]>([]);
   const [deviceInfoCache, setDeviceInfoCache] = useState<
     Record<string, Pick<Device, "id" | "registered_name">>
   >({});
@@ -161,7 +168,6 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
           is_default: true,
         },
       ],
-      pos_terminals: [],
     },
   });
 
@@ -197,25 +203,19 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
     }
   }, [manualEntryDisabled, defaultPaymentFlowWatched, createConfigForm]);
 
-  // Field array for POS terminals
-  const {
-    fields: terminalFields,
-    append: appendTerminal,
-    remove: removeTerminal,
-  } = useFieldArray({
-    control: createConfigForm.control,
-    name: "pos_terminals",
-  });
-
-  // Watch terminals to filter devices already selected
-  const terminals = useWatch({
-    control: createConfigForm.control,
-    name: "pos_terminals",
-  });
-
   const hasTerminalChanges =
-    JSON.stringify([...(terminals ?? []).map((t) => t.device_id)].sort()) !==
-    JSON.stringify([...terminalsBaseline].sort());
+    JSON.stringify([...draftTerminalIds].sort()) !==
+    JSON.stringify([...savedTerminalIds].sort());
+
+  const openTerminalsStep = () => {
+    setDraftTerminalIds(savedTerminalIds);
+    setStep("terminals");
+  };
+
+  const closeTerminalsStep = () => {
+    setDraftTerminalIds(savedTerminalIds);
+    setStep("form");
+  };
 
   const {
     data: config,
@@ -228,11 +228,7 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
     retry: false,
   });
 
-  const {
-    data: posTerminals,
-    isError: isTerminalsError,
-    refetch: refetchTerminals,
-  } = useQuery({
+  const { data: posTerminals, isError: isTerminalsError } = useQuery({
     queryKey: ["pinelabs_config", config?.id, "pos-terminals"],
     queryFn: () =>
       config?.id
@@ -305,21 +301,16 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
 
   // Create config mutation
   const createConfigMutation = useMutation({
-    mutationFn: (data: CreatePinelabsConfigBody) => {
-      const { pos_terminals, ...configData } = data;
-      return apis.pinelabs_config.create(configData as CreatePinelabsConfigBody);
-    },
+    mutationFn: (data: CreatePinelabsConfigBody) =>
+      apis.pinelabs_config.create(data),
     onSuccess: (createdConfig) => {
       toast.success(t("configuration_created_successfully"));
 
-      const terminalDeviceIds = (createConfigForm.getValues("pos_terminals") ?? [])
-        .map((t) => t.device_id);
-
-      if (terminalDeviceIds.length > 0) {
+      if (savedTerminalIds.length > 0) {
         linkTerminalsMutation.mutate(
           {
             configId: createdConfig.id,
-            deviceIds: terminalDeviceIds,
+            deviceIds: savedTerminalIds,
           },
           {
             onSuccess: () => {
@@ -352,14 +343,11 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
     },
     onSuccess: (_data, variables) => {
       toast.success(t("pos_terminals_updated_successfully"));
-      setTerminalsBaseline(variables.deviceIds);
-      setTimeout(() => {
-        refetchConfig();
-        refetchTerminals();
-        queryClient.invalidateQueries({
-          queryKey: ["pinelabs_config", variables.configId, "pos-terminals"],
-        });
-      }, 500);
+      setSavedTerminalIds(variables.deviceIds);
+      setDraftTerminalIds(variables.deviceIds);
+      queryClient.invalidateQueries({
+        queryKey: ["pinelabs_config", variables.configId, "pos-terminals"],
+      });
     },
     onError: (error: any) => {
       const errorMsg =
@@ -374,31 +362,14 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
   const updateConfigMutation = useMutation({
     mutationFn: (data: UpdatePinelabsConfigBody) => {
       if (!config) throw new Error("Config not found");
-      const { pos_terminals, ...configData } = data;
-      return apis.pinelabs_config.update(config.id, configData);
+      return apis.pinelabs_config.update(config.id, data);
     },
-    onSuccess: (_updatedConfig, variables) => {
+    onSuccess: () => {
       toast.success(t("configuration_updated_successfully"));
       queryClient.invalidateQueries({
         queryKey: ["pinelabs_config", facilityId],
       });
-
-      if (config) {
-        if (hasTerminalChanges) {
-          const terminalDeviceIds = (variables.pos_terminals ?? []).map(
-            (t) => t.device_id,
-          );
-          linkTerminalsMutation.mutate(
-            {
-              configId: config.id,
-              deviceIds: terminalDeviceIds,
-            },
-            { onSuccess: () => goBackToFacility() },
-          );
-        } else {
-          goBackToFacility();
-        }
-      }
+      goBackToFacility();
     },
     onError: (error: any) => {
       const errorMsg =
@@ -429,7 +400,6 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
           pinelabs_security_token: data.pinelabs_security_token,
         }),
         payment_method_mappings: data.payment_method_mappings,
-        pos_terminals: data.pos_terminals,
       };
       updateConfigMutation.mutate(updateData);
     } else {
@@ -462,23 +432,40 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
           pinelabs_method: m.pinelabs_method,
           is_default: m.is_default,
         })),
-        pos_terminals: (posTerminals ?? []).map((t) => ({
-          device_id: t.device.id,
-        })),
       });
-      setTerminalsBaseline((posTerminals ?? []).map((t) => t.device.id));
       setShowSecurityToken(false);
       setEditingConfig(true);
     }
   };
 
+  const hasLoadedConfigIntoForm = useRef(false);
+
   useEffect(() => {
     const terminalsSettled = posTerminals !== undefined || isTerminalsError;
-    if (config && terminalsSettled) {
+    if (config && terminalsSettled && !hasLoadedConfigIntoForm.current) {
+      hasLoadedConfigIntoForm.current = true;
       handleEditConfig();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, posTerminals, isTerminalsError]);
+
+  useEffect(() => {
+    if (posTerminals === undefined) return;
+    const serverTerminalIds = posTerminals.map((terminal) => terminal.device.id);
+    const sameIds = (a: string[], b: string[]) =>
+      JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
+    setSavedTerminalIds((prev) =>
+      sameIds(prev, serverTerminalIds) ? prev : serverTerminalIds,
+    );
+    if (step === "form") {
+      setDraftTerminalIds((prev) =>
+        sameIds(prev, serverTerminalIds) ? prev : serverTerminalIds,
+      );
+    }
+  }, [posTerminals]);
+
+  const terminalsReady = !config || posTerminals !== undefined;
 
   const getAvailableCareMethodsForIndex = () => {
     return CARE_METHOD_OPTIONS;
@@ -513,10 +500,7 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
 
   const availableDeviceResults = deviceSearchResults.filter((device) => {
     if (device.status !== "active") return false;
-    const isAlreadyAdded = terminals?.some(
-      (t) => t.device_id === device.id
-    );
-    return !isAlreadyAdded;
+    return !draftTerminalIds.includes(device.id);
   });
 
   return (
@@ -603,7 +587,10 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                           rules={{ required: t("merchant_id_required") }}
                           render={({ field }) => (
                             <FormItem className="flex flex-col">
-                              <FormLabel aria-required>{t("merchant_id")}</FormLabel>
+                              <FormLabel aria-required className="gap-1">
+                                {t("merchant_id")}
+                                <RequiredMark />
+                              </FormLabel>
                               <FormControl>
                                 <Input
                                   placeholder={t("merchant_id_placeholder")}
@@ -627,7 +614,13 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                             const canToggleVisibility = !editingConfig || !!field.value;
                             return (
                               <FormItem className="flex flex-col">
-                                <FormLabel aria-required>{t("security_token")}</FormLabel>
+                                <FormLabel
+                                  aria-required={!editingConfig}
+                                  className="gap-1"
+                                >
+                                  {t("security_token")}
+                                  {!editingConfig && <RequiredMark />}
+                                </FormLabel>
                                 <FormControl>
                                   <div className="relative">
                                     <Input
@@ -756,17 +749,22 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
 
                       <div className="flex items-center justify-between rounded-md border p-2">
                         <span className="text-sm text-gray-700">
-                          {terminalFields.length > 0
-                            ? t("terminal_linked_count", {
-                                count: terminalFields.length,
-                              })
-                            : t("no_terminals_linked")}
+                          {!terminalsReady
+                            ? isTerminalsError
+                              ? t("failed_to_load_terminals")
+                              : t("loading_terminals")
+                            : savedTerminalIds.length > 0
+                              ? t("terminal_linked_count", {
+                                  count: savedTerminalIds.length,
+                                })
+                              : t("no_terminals_linked")}
                         </span>
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => setStep("terminals")}
+                          disabled={!terminalsReady}
+                          onClick={openTerminalsStep}
                         >
                           {t("manage_terminals")}
                         </Button>
@@ -1058,9 +1056,12 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                                       registered_name: device.registered_name,
                                     },
                                   }));
-                                  appendTerminal({
-                                    device_id: device.id,
-                                  });
+                                  setDraftTerminalIds((prev) =>
+                                    prev.includes(device.id)
+                                      ? prev
+                                      : [...prev, device.id],
+                                  );
+                                  setTerminalPickerOpen(false);
                                   setTerminalDeviceSearch("");
                                 }}
                               >
@@ -1099,7 +1100,7 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {terminalFields.length === 0 ? (
+                    {draftTerminalIds.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={3}
@@ -1109,10 +1110,10 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                         </TableCell>
                       </TableRow>
                     ) : (
-                      terminalFields.map((field, index) => {
-                        const device = deviceInfoCache[field.device_id];
+                      draftTerminalIds.map((deviceId) => {
+                        const device = deviceInfoCache[deviceId];
                         return (
-                          <TableRow key={field.id}>
+                          <TableRow key={deviceId}>
                             <TableCell>
                               {device?.registered_name || "—"}
                             </TableCell>
@@ -1120,14 +1121,18 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                               className="text-sm text-gray-500 font-mono font-normal"
                               style={{ fontFamily: MONOSPACE_FONT_STACK }}
                             >
-                              {field.device_id}
+                              {deviceId}
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="icon"
-                                onClick={() => removeTerminal(index)}
+                                onClick={() =>
+                                  setDraftTerminalIds((prev) =>
+                                    prev.filter((id) => id !== deviceId),
+                                  )
+                                }
                                 aria-label={t("remove_terminal")}
                               >
                                 <Trash2Icon className="size-4" />
@@ -1145,26 +1150,31 @@ const PinelabsConfigurePage: FC<PinelabsConfigurePageProps> = ({
                     type="button"
                     variant="outline"
                     disabled={linkTerminalsMutation.isPending}
-                    onClick={() => setStep("form")}
+                    onClick={closeTerminalsStep}
                   >
                     {t("back")}
                   </Button>
                   <Button
                     type="button"
                     variant="primary"
-                    disabled={!hasTerminalChanges || linkTerminalsMutation.isPending}
+                    disabled={
+                      !hasTerminalChanges ||
+                      !terminalsReady ||
+                      linkTerminalsMutation.isPending
+                    }
                     onClick={() => {
-                      if (editingConfig && config) {
+                      if (config) {
                         linkTerminalsMutation.mutate(
                           {
                             configId: config.id,
-                            deviceIds: (terminals ?? []).map((t) => t.device_id),
+                            deviceIds: draftTerminalIds,
                           },
                           { onSuccess: () => setStep("form") },
                         );
                       } else {
                         // No config to link against yet - terminals are staged
                         // locally and get linked once the config is created.
+                        setSavedTerminalIds(draftTerminalIds);
                         setStep("form");
                       }
                     }}
